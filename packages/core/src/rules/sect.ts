@@ -2,7 +2,6 @@
  * Sect rules — membership, benefits, and contribution.
  */
 import type { CharacterState, SectState, SectAlignment } from "../types/index.js";
-import { ECONOMY_CONSTANTS } from "../constants/economy.js";
 
 /**
  * Check if a character can join a sect.
@@ -56,7 +55,7 @@ export function getSectMemberCap(rank: 1 | 2 | 3 | 4 | 5): number {
  * Calculate sect benefits for a member.
  */
 export function calculateSectBenefits(
-  character: CharacterState,
+  _character: CharacterState,
   sect: SectState,
 ): {
   cultivationBonus: number;

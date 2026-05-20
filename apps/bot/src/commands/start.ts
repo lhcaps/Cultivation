@@ -3,13 +3,14 @@
  */
 import { Command } from "@sapphire/framework";
 import { type ChatInputCommandInteraction } from "discord.js";
+import { prisma } from "@thien-nam/db";
 
 export class StartCommand extends Command {
   public constructor(context: Command.Context, options: Command.Options) {
     super(context, {
       ...options,
       name: "start",
-      description: "Bắt đầu hành trình tu tiên của bạn",
+      description: "Bat dau hanh trinh tu tien",
       preconditions: [],
     });
   }
@@ -18,11 +19,11 @@ export class StartCommand extends Command {
     registry.registerChatInputCommand((builder) =>
       builder
         .setName("start")
-        .setDescription("Bắt đầu hành trình tu tiên của bạn")
+        .setDescription("Bat dau hanh trinh tu tien")
         .addStringOption((option) =>
           option
             .setName("name")
-            .setDescription("Tên nhân vật (2-4 ký tự)")
+            .setDescription("Ten nhan vat (2-4 ky tu)")
             .setMinLength(2)
             .setMaxLength(4)
             .setRequired(true),
@@ -30,15 +31,13 @@ export class StartCommand extends Command {
     );
   }
 
-  public async chatInputRun(interaction: ChatInputCommandInteraction) {
+  public override async chatInputRun(interaction: ChatInputCommandInteraction) {
     const name = interaction.options.getString("name", true);
     const discordUserId = interaction.user.id;
 
-    // Defer reply immediately
     await interaction.deferReply({ ephemeral: true });
 
-    // Check if user already has a character
-    const existingUser = await this.container.db.user.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { discordId: discordUserId },
       include: { characters: true },
     });
@@ -49,15 +48,13 @@ export class StartCommand extends Command {
       });
     }
 
-    // Validate name (simple check)
-    if (!/^[\p{L}\s]+$/u.test(name) || name.length < 2 || name.length > 4) {
+    if (name.length < 2 || name.length > 4) {
       return interaction.editReply({
-        content: "Tên nhân vật phải từ 2-4 ký tự chữ cái.",
+        content: "Tên nhân vật phải từ 2-4 ký tự.",
       });
     }
 
-    // Get starting realm
-    const startingRealm = await this.container.db.realm.findUnique({
+    const startingRealm = await prisma.realm.findUnique({
       where: { id: "LUYEN_THE" },
     });
 
@@ -67,14 +64,11 @@ export class StartCommand extends Command {
       });
     }
 
-    // Calculate starting stats
     const maxHp = 100;
     const maxQi = 50;
 
-    // Create user and character in transaction
     try {
-      const result = await this.container.db.$transaction(async (tx) => {
-        // Create or find user
+      const result = await prisma.$transaction(async (tx) => {
         const user = await tx.user.upsert({
           where: { discordId: discordUserId },
           update: {},
@@ -84,13 +78,12 @@ export class StartCommand extends Command {
           },
         });
 
-        // Create character
         const character = await tx.character.create({
           data: {
             userId: user.id,
             name,
             realmId: "LUYEN_THE",
-            subStage: "SƠ",
+            subStage: "SO",
             cultivationPoints: 0,
             maxHp,
             maxQi,
@@ -103,8 +96,7 @@ export class StartCommand extends Command {
         return { user, character };
       });
 
-      // Log action
-      await this.container.db.actionLog.create({
+      await prisma.actionLog.create({
         data: {
           characterId: result.character.id,
           action: "CHARACTER_CREATED",
@@ -115,13 +107,13 @@ export class StartCommand extends Command {
 
       return interaction.editReply({
         content:
-          `Chào mừng **${name}** đến với Thiên Nam Võ Lục!\n\n` +
-          `Ngươi bắt đầu tại **Luyện Thể sơ kỳ** với:\n` +
+          `Chao mung **${name}** den voi Thien Nam Vo Luc!\n\n` +
+          `Ngươi bắt đầu tại **Luyen The so ky** voi:\n` +
           `• HP: ${maxHp}\n` +
           `• Qi: ${maxQi}\n` +
           `• Silver: 500\n` +
-          `• Công pháp: Thanh Vân Quyết\n\n` +
-          `Dùng **/cultivate** để bắt đầu tu luyện, hoặc **/help** để xem danh sách lệnh.`,
+          `• Cong phap: Thanh Van Quyet\n\n` +
+          `Dung **/cultivate** de bat dau tu luyen, hoac **/help** de xem danh sach lenh.`,
       });
     } catch (error) {
       this.container.logger.error("Character creation failed:", error);

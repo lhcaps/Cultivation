@@ -157,7 +157,7 @@ export function resolveBreakthrough(
     return {
       outcome: "SUCCESS",
       newRealm: nextRealm,
-      newSubStage: "SƠ",
+      newSubStage: "SO",
       foundationGain,
       cultivationPointsLoss: 0,
       heartDemonGain: 0,
@@ -181,7 +181,7 @@ export function resolveBreakthrough(
         injury: 0,
         cooldownDays: 1,
         publicLog: true,
-        publicLogMessage: `${character.name} đột phá thành công! ${REALMS[character.realm]!.name} hậu kỳ → ${REALMS[nextRealm]!.name} sơ kỳ`,
+        publicLogMessage: `${character.name} dat sieu cap tai ${REALMS[character.realm]!.name} hau ky!`,
         hiddenPotentialUnlocked: Math.random() < 0.10,
       };
     }
@@ -189,14 +189,14 @@ export function resolveBreakthrough(
     return {
       outcome: "CRITICAL_SUCCESS",
       newRealm: nextRealm,
-      newSubStage: "SƠ",
+      newSubStage: "SO",
       foundationGain: 6,
       cultivationPointsLoss: 0,
       heartDemonGain: 0,
       injury: 0,
       cooldownDays: 1,
       publicLog: true,
-      publicLogMessage: `${character.name} đột phá thành công! ${REALMS[character.realm]!.name} hậu kỳ → ${REALMS[nextRealm]!.name} sơ kỳ`,
+      publicLogMessage: `${character.name} dot pha thanh cong! ${REALMS[character.realm]!.name} hau ky → ${REALMS[nextRealm]!.name} so ky`,
       hiddenPotentialUnlocked: Math.random() < 0.10,
     };
   } else if (roll < successRate + 0.30) {

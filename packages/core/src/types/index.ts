@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { RealmId } from "../constants/realms.js";
 
 /** Character sub-stage enum */
-export const SubStage = z.enum(["SƠ", "TRUNG", "HẬU"]);
+export const SubStage = z.enum(["SO", "TRUNG", "HAU"]);
 export type SubStage = z.infer<typeof SubStage>;
 
 /** Cultivation mode enum */

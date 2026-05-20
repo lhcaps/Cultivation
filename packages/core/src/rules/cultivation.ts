@@ -12,11 +12,19 @@ import type {
   InjuryLevel,
 } from "../types/index.js";
 
+/** Default RNG using Math.random() */
+const defaultRng = () => Math.random();
+
+/** Rng interface for deterministic testing */
+export interface Rng {
+  next(): number;
+}
+
 /** Validation schema for cultivation input */
 export const CultivateInputSchema = z.object({
-  characterId: z.string().uuid(),
+  characterId: z.string().min(1),
   mode: z.enum(["STABLE", "FORCED", "SECLUSION", "SECT"]),
-  sectId: z.string().uuid().nullable(),
+  sectId: z.string().nullable(),
 });
 
 export type CultivateInput = z.infer<typeof CultivateInputSchema>;
@@ -36,12 +44,14 @@ export function getBaseCultivationPoints(realm: RealmId): number {
 export function getRegionQiMultiplier(region: string): number {
   const multipliers: Record<string, number> = {
     // HQ bonus
-    SECT_HQ: 1.20,
+    THIEN_Y_DAN_QUOC: 1.20,
+    THANH_VAN_TONG: 1.20,
+    CHINH_DƯƠNG_TONG: 1.20,
     // Region penalties/bonuses
     DAI_VIET: 1.00,
     TRUNG_NGUYEN: 1.00,
     TAY_VUC: 1.00,
-    U_MINH: 1.30, // High qi but corrupts
+    U_MINH: 1.30,
     DONG_HAI: 1.00,
     BAC_MAC: 0.85,
     NAM_MAN: 1.00,
@@ -89,6 +99,7 @@ export function calculateCultivationGain(
   heartDemon: number,
   hasManual: boolean,
   inSect: boolean,
+  rng: Rng = { next: defaultRng },
 ): number {
   const modeConfig = CULTIVATION_MODES[mode]!;
   const baseGain = getBaseCultivationPoints(realm);
@@ -111,7 +122,7 @@ export function calculateCultivationGain(
   );
 
   // Random variance: ±10%
-  const variance = 0.9 + Math.random() * 0.2;
+  const variance = 0.9 + rng.next() * 0.2;
   return Math.max(1, Math.floor(gain * variance));
 }
 
@@ -122,7 +133,8 @@ export function calculateCultivationGain(
 export function resolveCultivation(
   character: CharacterState,
   mode: CultivationMode,
-  sectId: string | null,
+  _sectId: string | null,
+  rng: Rng = { next: defaultRng },
 ): CultivationResult {
   const modeConfig = CULTIVATION_MODES[mode]!;
   const now = new Date();
@@ -148,39 +160,39 @@ export function resolveCultivation(
     character.heartDemon,
     character.manualId !== null,
     character.sectId !== null,
+    rng,
   );
 
   // Calculate heart demon gain
-  const heartDemonGained = modeConfig.heartDemon;
+  let heartDemonGained = modeConfig.heartDemon;
 
   // U Minh special: +2 heart demon per day
-  let uMinhHeartDemon = 0;
   if (character.region === "U_MINH") {
-    uMinhHeartDemon = CULTIVATION_CONSTANTS.HEART_DEMON_PER_DAY_UMINH;
+    heartDemonGained += CULTIVATION_CONSTANTS.HEART_DEMON_PER_DAY_UMINH;
   }
 
   // Risk check for forced cultivation
   let injury: InjuryLevel = 0;
-  if (mode === "FORCED" && Math.random() < modeConfig.riskChance) {
-    injury = 1; // Minor injury
+  if (mode === "FORCED" && rng.next() < modeConfig.riskChance) {
+    injury = 1;
   }
 
   // Stability calculation (0-100)
-  let stability = CULTIVATION_CONSTANTS.CULTIVATION_STABILITY_BASE;
+  let stability: number = CULTIVATION_CONSTANTS.CULTIVATION_STABILITY_BASE;
   stability += mode === "STABLE" ? 20 : mode === "SECLUSION" ? 30 : 0;
   stability += character.foundationQuality > 50 ? 10 : 0;
   stability = Math.min(100, stability);
 
   // Spirit stones chance (only for high-stability cultivation)
   let spiritStonesGained = 0;
-  if (Math.random() < CULTIVATION_CONSTANTS.CULTIVATION_ST_CHANCE && stability >= 60) {
+  if (rng.next() < CULTIVATION_CONSTANTS.CULTIVATION_ST_CHANCE && stability >= 60) {
     spiritStonesGained =
       CULTIVATION_CONSTANTS.CULTIVATION_ST_MIN +
-      Math.floor(Math.random() * (CULTIVATION_CONSTANTS.CULTIVATION_ST_MAX - CULTIVATION_CONSTANTS.CULTIVATION_ST_MIN));
+      Math.floor(rng.next() * (CULTIVATION_CONSTANTS.CULTIVATION_ST_MAX - CULTIVATION_CONSTANTS.CULTIVATION_ST_MIN));
   }
 
   // Public log conditions
-  const shouldPublicLog = stability >= 90 && Math.random() < 0.05;
+  const shouldPublicLog = stability >= 90 && rng.next() < 0.05;
   const publicLogMessage = shouldPublicLog
     ? `${character.name} đạt tu vi cực cao tại khu vực ${character.region}, khí tức bùng nổ!`
     : null;

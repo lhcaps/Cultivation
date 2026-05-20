@@ -35,7 +35,7 @@ model Character {
 
   // Realm progression
   realmId              String
-  subStage             String   @default("SƠ")
+  subStage             String   @default("SO")
   cultivationPoints     Int      @default(0)
 
   // Core stats

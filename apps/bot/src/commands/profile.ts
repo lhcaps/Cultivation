@@ -3,6 +3,7 @@
  */
 import { Command } from "@sapphire/framework";
 import { type ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
+import { prisma } from "@thien-nam/db";
 import { EmbedColors } from "../utils/interaction.js";
 
 export class ProfileCommand extends Command {
@@ -10,7 +11,7 @@ export class ProfileCommand extends Command {
     super(context, {
       ...options,
       name: "profile",
-      description: "Xem thông tin nhân vật của bạn",
+      description: "Xem thong tin nhan vat",
     });
   }
 
@@ -18,16 +19,16 @@ export class ProfileCommand extends Command {
     registry.registerChatInputCommand((builder) =>
       builder
         .setName("profile")
-        .setDescription("Xem thông tin nhân vật của bạn"),
+        .setDescription("Xem thong tin nhan vat"),
     );
   }
 
-  public async chatInputRun(interaction: ChatInputCommandInteraction) {
+  public override async chatInputRun(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
 
     const discordUserId = interaction.user.id;
 
-    const user = await this.container.db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { discordId: discordUserId },
       include: {
         characters: {
@@ -51,51 +52,51 @@ export class ProfileCommand extends Command {
     const realmDef = character.realm;
     const totalPoints = realmDef.pointsPerSubStage * 3;
     const progress = Math.round((character.cultivationPoints / totalPoints) * 100);
-    const progressBar = "█".repeat(Math.floor(progress / 10)) + "░".repeat(10 - Math.floor(progress / 10));
+    const progressBar = "=".repeat(Math.floor(progress / 10)) + "-".repeat(10 - Math.floor(progress / 10));
 
     const embed = new EmbedBuilder()
-      .setTitle(`📜 ${character.name}`)
+      .setTitle(`${character.name}`)
       .setColor(EmbedColors.INFO)
       .addFields(
         {
-          name: "Cảnh giới",
-          value: `**${realmDef.name}** (${character.subStage} kỳ)\n` +
+          name: "Canh giai",
+          value: `${realmDef.name} (${character.subStage} ky)\n` +
             `${progressBar} ${progress}%\n` +
             `${character.cultivationPoints.toLocaleString()} / ${totalPoints.toLocaleString()} tu vi`,
           inline: true,
         },
         {
-          name: "Trạng thái",
+          name: "Trang thai",
           value:
             `HP: ${character.currentHp}/${character.maxHp}\n` +
             `Qi: ${character.currentQi}/${character.maxQi}\n` +
-            `Căn cơ: ${character.foundationQuality}/100`,
+            `Can co: ${character.foundationQuality}/100`,
           inline: true,
         },
         {
-          name: "Tâm ma & Thương thương",
-          value: `Tâm ma: ${character.heartDemon}/100\nThương thương: Cấp ${character.injuryLevel}`,
+          name: "Tam ma",
+          value: `Tam ma: ${character.heartDemon}/100\nThuong thuong: Cap ${character.injuryLevel}`,
           inline: false,
         },
         {
-          name: "Tài nguyên",
+          name: "Tai nguyen",
           value:
-            `Bạc: ${character.silver.toLocaleString()} Ag\n` +
-            `Linh Thạch: ${character.spiritStones.toLocaleString()} ST\n` +
-            `Công Huân: ${character.merit.toLocaleString()} Mer\n` +
-            `Danh Vọng: ${character.reputation.toLocaleString()} Rep`,
+            `Bac: ${character.silver.toLocaleString()} Ag\n` +
+            `Linh Thach: ${character.spiritStones.toLocaleString()} ST\n` +
+            `Cong Huan: ${character.merit.toLocaleString()} Mer\n` +
+            `Danh Vong: ${character.reputation.toLocaleString()} Rep`,
           inline: true,
         },
         {
-          name: "Vị trí",
+          name: "Vi tri",
           value:
-            `Vùng: ${character.region.name}\n` +
-            `Tông môn: ${character.sect?.name ?? "Vô tông"}\n` +
-            `Công pháp: ${character.manual?.name ?? "Không có"}`,
+            `Vung: ${character.region.name}\n` +
+            `Tong mon: ${character.sect?.name ?? "Vo tong"}\n` +
+            `Cong phap: ${character.manual?.name ?? "Khong co"}`,
           inline: true,
         },
       )
-      .setFooter({ text: "Thiên Nam Võ Lục" })
+      .setFooter({ text: "Thien Nam Vo Luc" })
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embed] });

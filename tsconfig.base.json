@@ -8,10 +8,10 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@thien-nam/core": ["packages/core/src"],
-      "@thien-nam/core/*": ["packages/core/src/*"],
-      "@thien-nam/db": ["packages/db/src"],
-      "@thien-nam/db/*": ["packages/db/src/*"]
+      "@thien-nam/core": ["packages/core/dist"],
+      "@thien-nam/core/*": ["packages/core/dist/*"],
+      "@thien-nam/db": ["packages/db/dist"],
+      "@thien-nam/db/*": ["packages/db/dist/*"]
     },
     "declaration": true,
     "declarationMap": true,

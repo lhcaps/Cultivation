@@ -1,12 +1,11 @@
 /**
  * Encounter rules — encounter rolling and choice resolution.
  */
-import { REALMS, getRealmIndex, type RealmId } from "../constants/realms.js";
+import { getRealmIndex } from "../constants/realms.js";
 import type {
   CharacterState,
   EncounterDefinition,
   EncounterChoice,
-  RegionId,
 } from "../types/index.js";
 
 /**

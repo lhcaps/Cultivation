@@ -9,15 +9,15 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from "discord.js";
-import { EmbedColors } from "../utils/interaction.js";
-import { buildCustomId } from "../utils/interaction.js";
+import { prisma } from "@thien-nam/db";
+import { EmbedColors, buildCustomId } from "../utils/interaction.js";
 
 export class CultivateCommand extends Command {
   public constructor(context: Command.Context, options: Command.Options) {
     super(context, {
       ...options,
       name: "cultivate",
-      description: "Tu luyện để tăng tu vi",
+      description: "Tu luyen de tang tu vi",
     });
   }
 
@@ -25,17 +25,16 @@ export class CultivateCommand extends Command {
     registry.registerChatInputCommand((builder) =>
       builder
         .setName("cultivate")
-        .setDescription("Tu luyện để tăng tu vi"),
+        .setDescription("Tu luyen de tang tu vi"),
     );
   }
 
-  public async chatInputRun(interaction: ChatInputCommandInteraction) {
+  public override async chatInputRun(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
 
     const discordUserId = interaction.user.id;
 
-    // Find character
-    const user = await this.container.db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { discordId: discordUserId },
       include: {
         characters: {
@@ -58,52 +57,51 @@ export class CultivateCommand extends Command {
     const realmDef = character.realm;
     const totalPoints = realmDef.pointsPerSubStage * 3;
     const progress = Math.round((character.cultivationPoints / totalPoints) * 100);
-    const progressBar = "█".repeat(Math.floor(progress / 10)) + "░".repeat(10 - Math.floor(progress / 10));
+    const progressBar = "=".repeat(Math.floor(progress / 10)) + "-".repeat(10 - Math.floor(progress / 10));
 
-    // Check cooldown
     if (character.lastCultivationAt) {
       const hoursSince = (Date.now() - character.lastCultivationAt.getTime()) / 3_600_000;
       if (hoursSince < 1) {
         const remaining = (1 - hoursSince).toFixed(1);
         return interaction.editReply({
-          content: `⏳ Cooldown còn **${remaining} giờ**. Hãy nghỉ ngơi một chút.`,
+          content: `Cooldown con **${remaining} gio**. Hay nghi ngoi mot chut.`,
         });
       }
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("🧘 TU LUYỆN")
+      .setTitle("TU LUYEN")
       .setColor(EmbedColors.CULTIVATION)
       .setDescription(
-        `**${character.name}** — ${realmDef.name} (${character.subStage} kỳ)\n` +
+        `**${character.name}** — ${realmDef.name} (${character.subStage} ky)\n` +
           `Tu vi: ${progressBar} ${progress}%\n` +
           `\`${character.cultivationPoints.toLocaleString()} / ${totalPoints.toLocaleString()}\`\n\n` +
-          `📍 **${character.region.name}** | 🩸 Tâm ma: ${character.heartDemon}/100\n` +
-          `${character.sect ? `🏛️ **${character.sect.name}**` : ""}`,
+          `Vi tri: **${character.region.name}** | Tam ma: ${character.heartDemon}/100\n` +
+          `${character.sect ? `Tong mon: **${character.sect.name}**` : ""}`,
       )
-      .setFooter({ text: "Chọn phương thức tu luyện bên dưới" });
+      .setFooter({ text: "Chon phuong thuc tu luyen ben duoi" });
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(buildCustomId("cultivate", "stable", character.id))
-        .setLabel("Ổn Định Căn Cơ")
+        .setLabel("On dinh")
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("🛡️"),
+        .setEmoji("S"),
       new ButtonBuilder()
         .setCustomId(buildCustomId("cultivate", "forced", character.id))
-        .setLabel("Cưỡng Ép Tu Luyện")
+        .setLabel("Cuong ep")
         .setStyle(ButtonStyle.Danger)
-        .setEmoji("⚡"),
+        .setEmoji("!"),
       new ButtonBuilder()
         .setCustomId(buildCustomId("cultivate", "seclusion", character.id))
-        .setLabel("Bế Quan 8 Giờ")
+        .setLabel("Be quan 8 gio")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("🏯"),
+        .setEmoji("B"),
       new ButtonBuilder()
         .setCustomId(buildCustomId("cultivate", "sect", character.id))
         .setStyle(ButtonStyle.Success)
-        .setLabel("Tu Luyện Tông Môn")
-        .setEmoji("🏛️")
+        .setLabel("Tong mon")
+        .setEmoji("T")
         .setDisabled(!character.sectId),
     );
 

@@ -15,10 +15,10 @@ export function parseCustomId(customId: string): {
   const parts = customId.split(":");
   if (parts.length < 4) return null;
   return {
-    action: parts[0],
-    subAction: parts[1],
-    targetId: parts[2],
-    nonce: parts[3],
+    action: parts[0]!,
+    subAction: parts[1]!,
+    targetId: parts[2]!,
+    nonce: parts[3]!,
   };
 }
 
@@ -32,20 +32,6 @@ export function buildCustomId(
 ): string {
   const nonce = Math.random().toString(36).substring(2, 8);
   return `${action}:${subAction}:${targetId}:${nonce}`;
-}
-
-/**
- * Create an ephemeral message payload.
- */
-export function ephemeral(
-  content: string,
-  embeds?: unknown[],
-): { content: string; embeds?: unknown[]; flags: number } {
-  return {
-    content,
-    embeds,
-    flags: 64, // Ephemeral flag
-  };
 }
 
 /**

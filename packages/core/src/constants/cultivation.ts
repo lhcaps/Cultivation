@@ -57,6 +57,15 @@ export const CULTIVATION_CONSTANTS = {
 
   /** Maximum heart demon */
   HEART_DEMON_MAX: 100,
+
+  /** Chance to find spirit stones during cultivation */
+  CULTIVATION_ST_CHANCE: 0.08,
+
+  /** Minimum spirit stones found */
+  CULTIVATION_ST_MIN: 1,
+
+  /** Maximum spirit stones found */
+  CULTIVATION_ST_MAX: 5,
 } as const;
 
 export const CULTIVATION_MODES = {
