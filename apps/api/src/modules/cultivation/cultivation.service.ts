@@ -2,17 +2,22 @@
  * Cultivation service — applies cultivation rules from core package.
  */
 import { Injectable, BadRequestException } from "@nestjs/common";
-import { resolveCultivation, canCultivate } from "@thien-nam/core/rules";
+import { resolveCultivation, canCultivate, type Rng } from "@thien-nam/core/rules";
 import { CharacterService } from "../character/character.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type { CharacterState, CultivationMode } from "@thien-nam/core/types/index.js";
 
 @Injectable()
 export class CultivationService {
+  private readonly rng: Rng;
+
   public constructor(
     private readonly characterService: CharacterService,
     private readonly prisma: PrismaService,
-  ) {}
+    rng?: Rng,
+  ) {
+    this.rng = rng ?? { next: () => Math.random() };
+  }
 
   async cultivate(characterId: string, mode: CultivationMode) {
     const character = await this.characterService.findById(characterId);
@@ -57,7 +62,7 @@ export class CultivationService {
     }
 
     // Resolve cultivation
-    const result = resolveCultivation(state, mode, character.sectId);
+    const result = resolveCultivation(state, mode, character.sectId, this.rng);
 
     // Apply to database in transaction
     await this.prisma.$transaction(async (tx) => {

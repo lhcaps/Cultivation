@@ -5,5 +5,5 @@
     "rootDir": "."
   },
   "include": ["apps/**/*", "packages/**/*", "*.config.*", "turbo.json", "vitest.config.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "**/dist/**"]
 }

@@ -94,6 +94,7 @@ model Character {
   cooldowns            Cooldown[]
   injuries             Injury[]
 
+  @@unique([userId])
   @@unique([userId, name])
   @@index([userId])
   @@index([realmId])

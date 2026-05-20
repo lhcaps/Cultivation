@@ -1,12 +1,12 @@
 /**
  * Sect service.
  */
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
 export class SectService {
-  public constructor(private readonly prisma: PrismaService) {}
+  public constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findAll() {
     return this.prisma.sect.findMany({

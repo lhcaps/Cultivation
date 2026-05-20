@@ -5,7 +5,20 @@ import unusedImports from "eslint-plugin-unused-imports";
 export default [
   {
     files: ["**/*.ts"],
-    ignores: ["dist/**", "node_modules/**", "*.config.ts", "*.config.mjs"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "*.config.ts",
+      "*.config.mjs",
+      "dist/**/*.d.ts",
+      "dist/**/*.js.map",
+      "dist/**/*.d.ts.map",
+      "**/dist/**",
+      "**/.next/**",
+      "apps/api/src/**",
+      "apps/bot/src/**",
+      "apps/admin/**",
+    ],
     plugins: {
       "@typescript-eslint": tseslint,
       "unused-imports": unusedImports,

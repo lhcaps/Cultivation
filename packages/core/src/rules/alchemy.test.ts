@@ -9,8 +9,9 @@ import {
   FIRE_CONTROL_CHOICES,
 } from "./alchemy.js";
 import type { CharacterState, AlchemyRecipe, FireControlChoice } from "../types/index.js";
+import type { Rng } from "./alchemy.js";
 
-function fixedRng(values: number[]): import("./alchemy.js").Rng {
+function fixedRng(values: number[]): Rng {
   let idx = 0;
   return { next: () => values[idx++ % values.length] ?? 0.5 };
 }

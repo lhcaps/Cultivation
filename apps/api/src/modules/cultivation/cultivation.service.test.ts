@@ -1,9 +1,11 @@
 /**
  * Cultivation API integration tests — verify service + game engine integration.
  */
+import type { MockInstance } from "vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Rng } from "@thien-nam/core/rules";
 import { CultivationService } from "./cultivation.service.js";
-import { CharacterService } from "../character/character.service.js";
+import type { CharacterService } from "../character/character.service.js";
 
 // Minimal character data as returned by Prisma
 const mockCharacter = {
@@ -64,6 +66,16 @@ describe("CultivationService", () => {
     service = new CultivationService(characterService, mockPrisma as never);
   });
 
+  /**
+   * Build a deterministic RNG that returns specific values in sequence.
+   * Resolves the flaky injury test by controlling all RNG calls.
+   * Calls: variance (1), injury check (1), spirit stone check (1), public log (1) = 4 total
+   */
+  function makeRng(values: number[]): Rng {
+    let i = 0;
+    return { next: () => values[i++] ?? 0 };
+  }
+
   it("creates cultivation session row after successful cultivation", async () => {
     mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
       fn({
@@ -85,7 +97,12 @@ describe("CultivationService", () => {
     const injuredChar = { ...mockCharacter, lastCultivationAt: new Date(Date.now() - 86400_000 * 2) };
     (characterService.findById as ReturnType<typeof vi.fn>).mockResolvedValue(injuredChar);
 
-    let txCtx: Record<string, unknown> = {};
+    let txCtx!: {
+      character: { update: MockInstance };
+      injury: { create: MockInstance };
+      cultivationSession: { create: MockInstance };
+      actionLog: { create: MockInstance };
+    };
     mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
       fn(
         (txCtx = {
@@ -97,46 +114,48 @@ describe("CultivationService", () => {
       ),
     );
 
-    // Inject forced mode to trigger injury path
-    const result = await service.cultivate("char-1", "FORCED");
+    // Inject deterministic RNG: variance=0.5, injury triggers (< riskChance), spiritStone=0.5, publicLog=0.5
+    const forcedService = new CultivationService(characterService, mockPrisma as never, makeRng([0.5, 0.05, 0.5, 0.5]));
+    await forcedService.cultivate("char-1", "FORCED");
 
     // Verify injury row is created
-    const injuryCreate = txCtx.injury?.create as ReturnType<typeof vi.fn>;
-    expect(injuryCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          characterId: "char-1",
-          level: expect.any(Number),
-          source: "FORCED",
-        }),
+    expect(txCtx.injury.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        characterId: "char-1",
+        level: expect.any(Number),
+        source: "FORCED",
       }),
-    );
+    });
   });
 
   it("creates action log entry for cultivation", async () => {
+    let txCtx!: {
+      character: { update: MockInstance };
+      injury: { create: MockInstance };
+      cultivationSession: { create: MockInstance };
+      actionLog: { create: MockInstance };
+    };
     mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
-      fn({
-        character: { update: vi.fn().mockResolvedValue({ id: "char-1" }) },
-        injury: { create: vi.fn() },
-        cultivationSession: { create: vi.fn().mockResolvedValue({ id: "sess-1" }) },
-        actionLog: { create: vi.fn().mockResolvedValue({ id: "log-1" }) },
-      }),
+      fn(
+        (txCtx = {
+          character: { update: vi.fn().mockResolvedValue({ id: "char-1" }) },
+          injury: { create: vi.fn() },
+          cultivationSession: { create: vi.fn().mockResolvedValue({ id: "sess-1" }) },
+          actionLog: { create: vi.fn().mockResolvedValue({ id: "log-1" }) },
+        }),
+      ),
     );
 
     await service.cultivate("char-1", "STABLE");
 
     // Verify action log was created
-    const txCtx = mockPrisma.$transaction.mock.calls[0]?.[0];
-    const actionLogCreate = txCtx?.actionLog?.create as ReturnType<typeof vi.fn>;
-    expect(actionLogCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          characterId: "char-1",
-          action: "CULTIVATE",
-          publicLog: expect.any(Boolean),
-        }),
+    expect(txCtx.actionLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        characterId: "char-1",
+        action: "CULTIVATE",
+        publicLog: expect.any(Boolean),
       }),
-    );
+    });
   });
 
   it("throws when character not found", async () => {

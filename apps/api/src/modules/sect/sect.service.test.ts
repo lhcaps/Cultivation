@@ -2,6 +2,7 @@
  * Sect API integration tests — verify sect membership rules.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { MockInstance } from "vitest";
 import { SectService } from "./sect.service.js";
 
 const mockPrisma = {
@@ -77,7 +78,11 @@ describe("SectService", () => {
     });
 
     it("writes action log on successful join", async () => {
-      let txCtx: Record<string, unknown> = {};
+      let txCtx!: {
+        character: { findUnique: MockInstance; update: MockInstance };
+        sect: { findUnique: MockInstance };
+        actionLog: { create: MockInstance };
+      };
       mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
         fn(
           (txCtx = {
@@ -93,7 +98,7 @@ describe("SectService", () => {
 
       await service.joinSect("char-1", "sect-1");
 
-      const actionLogCreate = txCtx.actionLog?.create as ReturnType<typeof vi.fn>;
+      const actionLogCreate = txCtx.actionLog.create;
       expect(actionLogCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
           characterId: "char-1",

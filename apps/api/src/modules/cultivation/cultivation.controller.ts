@@ -1,7 +1,7 @@
 /**
  * Cultivation REST controller.
  */
-import { Controller, Post, Body, Param, BadRequestException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Inject, Param, Post } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { CultivationService } from "./cultivation.service.js";
 import { z } from "zod";
@@ -13,7 +13,9 @@ const CultivateSchema = z.object({
 @ApiTags("cultivation")
 @Controller("cultivation")
 export class CultivationController {
-  public constructor(private readonly cultivationService: CultivationService) {}
+  public constructor(
+    @Inject(CultivationService) private readonly cultivationService: CultivationService,
+  ) {}
 
   @Post(":characterId")
   @ApiOperation({ summary: "Cultivate a character" })

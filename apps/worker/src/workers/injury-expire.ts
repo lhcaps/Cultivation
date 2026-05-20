@@ -118,7 +118,7 @@ async function expireCharacterInjuries(
         action: "INJURY_EXPIRED",
         details: {
           expiredCount: expiredIds.length,
-          newInjuryLevel: newInjuryLevel,
+          newInjuryLevel,
         },
         publicLog: false,
       },

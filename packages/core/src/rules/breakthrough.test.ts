@@ -9,8 +9,9 @@ import {
   getNextRealm,
 } from "./breakthrough.js";
 import type { CharacterState } from "../types/index.js";
+import type { Rng } from "./breakthrough.js";
 
-function fixedRng(values: number[]): import("./breakthrough.js").Rng {
+function fixedRng(values: number[]): Rng {
   let idx = 0;
   return { next: () => values[idx++ % values.length] ?? 0.5 };
 }

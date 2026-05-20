@@ -1,14 +1,14 @@
 /**
  * Sect REST controller.
  */
-import { Controller, Get, Post, Param, Body } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { SectService } from "./sect.service.js";
 
 @ApiTags("sects")
 @Controller("sects")
 export class SectController {
-  public constructor(private readonly sectService: SectService) {}
+  public constructor(@Inject(SectService) private readonly sectService: SectService) {}
 
   @Get()
   @ApiOperation({ summary: "List all sects" })

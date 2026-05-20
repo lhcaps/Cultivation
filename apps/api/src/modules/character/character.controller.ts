@@ -3,7 +3,7 @@
  */
 import { Controller, Get, Param, NotFoundException } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { CharacterService } from "./character.service.js";
+import { type CharacterService } from "./character.service.js";
 
 @ApiTags("characters")
 @Controller("characters")
