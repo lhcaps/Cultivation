@@ -1,0 +1,146 @@
+/**
+ * Cultivation API integration tests — verify service + game engine integration.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CultivationService } from "./cultivation.service.js";
+import { CharacterService } from "../character/character.service.js";
+
+// Minimal character data as returned by Prisma
+const mockCharacter = {
+  id: "char-1",
+  userId: "user-1",
+  name: "TestChar",
+  realmId: "LUYEN_THE",
+  subStage: "SO",
+  cultivationPoints: 0,
+  foundationQuality: 20,
+  heartDemon: 0,
+  injuryLevel: 0,
+  regionId: "DAI_VIET",
+  sectId: null,
+  manualId: "THANH_VAN_QUYET",
+  currentHp: 100,
+  maxHp: 100,
+  currentQi: 50,
+  maxQi: 50,
+  silver: 500,
+  spiritStones: 0,
+  merit: 0,
+  reputation: 0,
+  heavenSeals: 0,
+  luck: 10,
+  element: "THUY",
+  lastCultivationAt: null,
+  lastHeartDemonAt: null,
+  user: { id: "user-1", discordId: "123" },
+};
+
+const mockPrisma = {
+  $transaction: vi.fn(),
+  character: {
+    update: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  injury: {
+    create: vi.fn(),
+  },
+  cultivationSession: {
+    create: vi.fn(),
+  },
+  actionLog: {
+    create: vi.fn(),
+  },
+};
+
+describe("CultivationService", () => {
+  let service: CultivationService;
+  let characterService: CharacterService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    characterService = {
+      findById: vi.fn().mockResolvedValue(mockCharacter),
+    } as unknown as CharacterService;
+    service = new CultivationService(characterService, mockPrisma as never);
+  });
+
+  it("creates cultivation session row after successful cultivation", async () => {
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+      fn({
+        character: {
+          update: vi.fn().mockResolvedValue({ id: "char-1" }),
+        },
+        injury: { create: vi.fn() },
+        cultivationSession: { create: vi.fn().mockResolvedValue({ id: "sess-1" }) },
+        actionLog: { create: vi.fn().mockResolvedValue({ id: "log-1" }) },
+      }),
+    );
+
+    const result = await service.cultivate("char-1", "STABLE");
+    expect(result.pointsGained).toBeGreaterThan(0);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates injury row when forced cultivation causes injury", async () => {
+    const injuredChar = { ...mockCharacter, lastCultivationAt: new Date(Date.now() - 86400_000 * 2) };
+    (characterService.findById as ReturnType<typeof vi.fn>).mockResolvedValue(injuredChar);
+
+    let txCtx: Record<string, unknown> = {};
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+      fn(
+        (txCtx = {
+          character: { update: vi.fn().mockResolvedValue({ id: "char-1" }) },
+          injury: { create: vi.fn().mockResolvedValue({ id: "inj-1" }) },
+          cultivationSession: { create: vi.fn().mockResolvedValue({ id: "sess-1" }) },
+          actionLog: { create: vi.fn().mockResolvedValue({ id: "log-1" }) },
+        }),
+      ),
+    );
+
+    // Inject forced mode to trigger injury path
+    const result = await service.cultivate("char-1", "FORCED");
+
+    // Verify injury row is created
+    const injuryCreate = txCtx.injury?.create as ReturnType<typeof vi.fn>;
+    expect(injuryCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          characterId: "char-1",
+          level: expect.any(Number),
+          source: "FORCED",
+        }),
+      }),
+    );
+  });
+
+  it("creates action log entry for cultivation", async () => {
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+      fn({
+        character: { update: vi.fn().mockResolvedValue({ id: "char-1" }) },
+        injury: { create: vi.fn() },
+        cultivationSession: { create: vi.fn().mockResolvedValue({ id: "sess-1" }) },
+        actionLog: { create: vi.fn().mockResolvedValue({ id: "log-1" }) },
+      }),
+    );
+
+    await service.cultivate("char-1", "STABLE");
+
+    // Verify action log was created
+    const txCtx = mockPrisma.$transaction.mock.calls[0]?.[0];
+    const actionLogCreate = txCtx?.actionLog?.create as ReturnType<typeof vi.fn>;
+    expect(actionLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          characterId: "char-1",
+          action: "CULTIVATE",
+          publicLog: expect.any(Boolean),
+        }),
+      }),
+    );
+  });
+
+  it("throws when character not found", async () => {
+    (characterService.findById as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    await expect(service.cultivate("nonexistent", "STABLE")).rejects.toThrow();
+  });
+});

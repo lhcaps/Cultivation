@@ -37,30 +37,9 @@ export class StartCommand extends Command {
 
     await interaction.deferReply({ ephemeral: true });
 
-    const existingUser = await prisma.user.findUnique({
-      where: { discordId: discordUserId },
-      include: { characters: true },
-    });
-
-    if (existingUser && existingUser.characters.length > 0) {
-      return interaction.editReply({
-        content: `Ngươi đã có nhân vật rồi. Dùng /profile để xem thông tin.\nNhân vật hiện tại: **${existingUser.characters[0]!.name}** (${existingUser.characters[0]!.realmId})`,
-      });
-    }
-
     if (name.length < 2 || name.length > 4) {
       return interaction.editReply({
         content: "Tên nhân vật phải từ 2-4 ký tự.",
-      });
-    }
-
-    const startingRealm = await prisma.realm.findUnique({
-      where: { id: "LUYEN_THE" },
-    });
-
-    if (!startingRealm) {
-      return interaction.editReply({
-        content: "Lỗi hệ thống: Không tìm thấy cảnh giới khởi tạo.",
       });
     }
 
@@ -69,6 +48,17 @@ export class StartCommand extends Command {
 
     try {
       await prisma.$transaction(async (tx) => {
+        const existingCharacter = await tx.character.findFirst({
+          where: { user: { discordId: discordUserId } },
+          select: { id: true, name: true },
+        });
+
+        if (existingCharacter) {
+          throw Object.assign(new Error("CHARACTER_EXISTS"), {
+            existingName: existingCharacter.name,
+          });
+        }
+
         const user = await tx.user.upsert({
           where: { discordId: discordUserId },
           update: {},
@@ -116,6 +106,12 @@ export class StartCommand extends Command {
           `Dung **/cultivate** de bat dau tu luyen, hoac **/help** de xem danh sach lenh.`,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === "CHARACTER_EXISTS") {
+        const existingName = (error as typeof error & { existingName?: string }).existingName;
+        return interaction.editReply({
+          content: `Ngươi đã có nhân vật rồi. Dùng /profile để xem thông tin.\nNhân vật hiện tại: **${existingName ?? "?"}**`,
+        });
+      }
       this.container.logger.error("Character creation failed:", error);
       return interaction.editReply({
         content: "Có lỗi xảy ra khi tạo nhân vật. Vui lòng thử lại sau.",
