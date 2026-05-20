@@ -23,7 +23,7 @@ const client = new SapphireClient({
   loadMessageCommandListeners: false,
 });
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`[Bot] Logged in as ${client.user?.tag}`);
 });
 

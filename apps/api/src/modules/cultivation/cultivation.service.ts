@@ -1,7 +1,7 @@
 /**
  * Cultivation service — applies cultivation rules from core package.
  */
-import { Inject, Injectable, BadRequestException, ForbiddenException } from '@nestjs/common'
+import { Inject, Injectable, Optional, BadRequestException, ForbiddenException } from '@nestjs/common'
 import { CULTIVATION_MODES } from '@thien-nam/core/constants'
 import { resolveCultivation, canCultivate, type Rng } from '@thien-nam/core/rules'
 import { CharacterService } from '../character/character.service.js'
@@ -14,6 +14,8 @@ import {
   type CultivationResultResponse,
 } from './cultivation.schemas.js'
 
+export const CULTIVATION_RNG = 'CULTIVATION_RNG'
+
 type CharacterForCultivation = NonNullable<Awaited<ReturnType<CharacterService['findById']>>>
 
 @Injectable()
@@ -25,6 +27,8 @@ export class CultivationService {
     private readonly characterService: CharacterService,
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(CULTIVATION_RNG)
     rng?: Rng,
   ) {
     this.rng = rng ?? { next: () => Math.random() }
