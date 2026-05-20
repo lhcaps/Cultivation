@@ -90,7 +90,7 @@ describe('CultivationService', () => {
       }),
     )
 
-    const result = await service.cultivate('char-1', 'STABLE')
+    const result = await service.cultivateForDiscordUser('123', 'char-1', 'STABLE')
     expect(result.pointsGained).toBeGreaterThan(0)
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
   })
@@ -125,7 +125,7 @@ describe('CultivationService', () => {
       mockPrisma as never,
       makeRng([0.5, 0.05, 0.5, 0.5]),
     )
-    await forcedService.cultivate('char-1', 'FORCED')
+    await forcedService.cultivateForDiscordUser('123', 'char-1', 'FORCED')
 
     // Verify injury row is created
     expect(txCtx.injury.create).toHaveBeenCalledWith({
@@ -155,7 +155,7 @@ describe('CultivationService', () => {
       ),
     )
 
-    await service.cultivate('char-1', 'STABLE')
+    await service.cultivateForDiscordUser('123', 'char-1', 'STABLE')
 
     // Verify action log was created
     expect(txCtx.actionLog.create).toHaveBeenCalledWith({
@@ -169,7 +169,7 @@ describe('CultivationService', () => {
 
   it('throws when character not found', async () => {
     ;(characterService.findById as ReturnType<typeof vi.fn>).mockResolvedValue(null)
-    await expect(service.cultivate('nonexistent', 'STABLE')).rejects.toThrow()
+    await expect(service.cultivateForDiscordUser('123', 'nonexistent', 'STABLE')).rejects.toThrow()
   })
 
   it('rejects cultivation for a character owned by another Discord user', async () => {

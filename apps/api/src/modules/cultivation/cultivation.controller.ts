@@ -66,16 +66,4 @@ export class CultivationController {
       parsedBody.data.mode,
     )
   }
-
-  @Post(':characterId')
-  @ApiOperation({ summary: 'Cultivate a character' })
-  @ApiResponse({ status: 200, description: 'Cultivation successful' })
-  @ApiResponse({ status: 400, description: 'Cannot cultivate' })
-  async cultivate(@Param('characterId') characterId: string, @Body() body: CultivateRequest) {
-    const parsed = CultivateRequestSchema.safeParse(body)
-    if (!parsed.success) {
-      throw new BadRequestException(parsed.error.flatten())
-    }
-    return this.cultivationService.cultivate(characterId, parsed.data.mode)
-  }
 }

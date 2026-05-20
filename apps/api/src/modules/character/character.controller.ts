@@ -6,12 +6,13 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   NotFoundException,
   Param,
   Post,
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
-import { type CharacterService } from './character.service.js'
+import { CharacterService } from './character.service.js'
 import {
   DiscordUserIdSchema,
   StartCharacterRequestSchema,
@@ -21,7 +22,10 @@ import {
 @ApiTags('characters')
 @Controller('characters')
 export class CharacterController {
-  public constructor(private readonly characterService: CharacterService) {}
+  public constructor(
+    @Inject(CharacterService)
+    private readonly characterService: CharacterService,
+  ) {}
 
   @Post('start')
   @ApiOperation({ summary: 'Create the first character for a Discord user' })

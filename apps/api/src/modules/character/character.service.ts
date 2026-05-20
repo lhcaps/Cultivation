@@ -1,8 +1,8 @@
 /**
  * Character service — business logic for character operations.
  */
-import { Injectable } from '@nestjs/common'
-import type { PrismaService } from '../prisma/prisma.service.js'
+import { Inject, Injectable } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service.js'
 import {
   CharacterProfileResponseSchema,
   CharacterStartResponseSchema,
@@ -13,7 +13,10 @@ import {
 
 @Injectable()
 export class CharacterService {
-  public constructor(private readonly prisma: PrismaService) {}
+  public constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+  ) {}
 
   async createForDiscordUser(input: StartCharacterRequest): Promise<CharacterStartResponse> {
     const name = input.name.trim()

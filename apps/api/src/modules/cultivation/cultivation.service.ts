@@ -1,7 +1,7 @@
 /**
  * Cultivation service — applies cultivation rules from core package.
  */
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common'
+import { Inject, Injectable, BadRequestException, ForbiddenException } from '@nestjs/common'
 import { CULTIVATION_MODES } from '@thien-nam/core/constants'
 import { resolveCultivation, canCultivate, type Rng } from '@thien-nam/core/rules'
 import { CharacterService } from '../character/character.service.js'
@@ -21,7 +21,9 @@ export class CultivationService {
   private readonly rng: Rng
 
   public constructor(
+    @Inject(CharacterService)
     private readonly characterService: CharacterService,
+    @Inject(PrismaService)
     private readonly prisma: PrismaService,
     rng?: Rng,
   ) {
@@ -91,15 +93,6 @@ export class CultivationService {
 
     if (character.user.discordId !== discordId) {
       throw new ForbiddenException('Character does not belong to this Discord user')
-    }
-
-    return this.cultivateLoadedCharacter(character, mode)
-  }
-
-  async cultivate(characterId: string, mode: CultivationMode): Promise<CultivationResultResponse> {
-    const character = await this.characterService.findById(characterId)
-    if (!character) {
-      throw new BadRequestException('Character not found')
     }
 
     return this.cultivateLoadedCharacter(character, mode)
