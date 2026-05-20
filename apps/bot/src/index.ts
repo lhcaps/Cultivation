@@ -24,7 +24,6 @@ const client = new SapphireClient({
 });
 
 client.once("ready", () => {
-  // eslint-disable-next-line no-console
   console.log(`[Bot] Logged in as ${client.user?.tag}`);
 });
 

@@ -2,7 +2,7 @@
  * Cultivation service — applies cultivation rules from core package.
  */
 import { Injectable, BadRequestException } from "@nestjs/common";
-import { resolveCultivation, canCultivate } from "@thien-nam/core/rules/cultivation.js";
+import { resolveCultivation, canCultivate } from "@thien-nam/core/rules";
 import { CharacterService } from "../character/character.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type { CharacterState, CultivationMode } from "@thien-nam/core/types/index.js";

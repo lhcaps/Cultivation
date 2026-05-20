@@ -38,7 +38,7 @@ export default [
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-floating-promises": "error",
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-console": ["warn", { allow: ["warn", "error", "log"] }],
       eqeqeq: ["error", "always"],
       "no-else-return": "error",
       "no-useless-return": "error",

@@ -1,4 +1,4 @@
-import "./globals.css";
+import './globals.css'
 
 export default function HomePage() {
   return (
@@ -18,7 +18,7 @@ export default function HomePage() {
         </div>
       </div>
     </main>
-  );
+  )
 }
 
 function AdminCard({ title, href }: { title: string; href: string }) {
@@ -30,5 +30,5 @@ function AdminCard({ title, href }: { title: string; href: string }) {
       <h2 className="text-lg font-semibold text-amber-400">{title}</h2>
       <p className="text-sm text-gray-500 mt-1">Quản lý {title.toLowerCase()}</p>
     </a>
-  );
+  )
 }

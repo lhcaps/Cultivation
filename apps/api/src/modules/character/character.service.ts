@@ -28,6 +28,7 @@ export class CharacterService {
     return this.prisma.character.findUnique({
       where: { id },
       include: {
+        user: true,
         realm: true,
         region: true,
         sect: true,

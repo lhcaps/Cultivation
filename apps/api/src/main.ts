@@ -44,4 +44,7 @@ async function bootstrap() {
   console.log(`🧘 Thiên Nam API đang chạy trên port ${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error("Failed to start API:", err);
+  process.exit(1);
+});

@@ -5,7 +5,6 @@ import { Controller, Post, Body, Param, BadRequestException } from "@nestjs/comm
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { CultivationService } from "./cultivation.service.js";
 import { z } from "zod";
-import { zodToOpenAPISchema } from "@anatine/zod-openapi";
 
 const CultivateSchema = z.object({
   mode: z.enum(["STABLE", "FORCED", "SECLUSION", "SECT"]),

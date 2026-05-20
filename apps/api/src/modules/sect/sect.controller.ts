@@ -36,7 +36,7 @@ export class SectController {
 
   @Post(":id/leave")
   @ApiOperation({ summary: "Leave a sect" })
-  async leaveSect(@Param("id") id: string, @Body() body: { characterId: string }) {
+  async leaveSect(@Param("id") _id: string, @Body() body: { characterId: string }) {
     return this.sectService.leaveSect(body.characterId);
   }
 }

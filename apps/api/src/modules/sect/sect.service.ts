@@ -35,11 +35,6 @@ export class SectService {
         data: { sectId },
       });
 
-      await tx.sect.update({
-        where: { id: sectId },
-        data: { memberCount: { increment: 1 } },
-      });
-
       await tx.actionLog.create({
         data: {
           characterId,
@@ -63,11 +58,6 @@ export class SectService {
       const updated = await tx.character.update({
         where: { id: characterId },
         data: { sectId: null },
-      });
-
-      await tx.sect.update({
-        where: { id: character.sectId },
-        data: { memberCount: { decrement: 1 } },
       });
 
       await tx.actionLog.create({

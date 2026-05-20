@@ -5,7 +5,7 @@
 import { Listener } from "@sapphire/framework";
 import { type ButtonInteraction, EmbedBuilder } from "discord.js";
 import { prisma } from "@thien-nam/db";
-import { resolveCultivation, canCultivate, type Rng } from "@thien-nam/core/rules/cultivation.js";
+import { resolveCultivation, canCultivate, type Rng } from "@thien-nam/core/rules";
 import type { CultivationMode, CharacterState } from "@thien-nam/core/types/index.js";
 import { EmbedColors } from "../utils/interaction.js";
 
