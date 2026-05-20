@@ -3,7 +3,7 @@
  */
 import type { MockInstance } from 'vitest'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Rng } from '@thien-nam/core/rules'
+import type { Rng } from '@thien-nam/core'
 import { CultivationService } from './cultivation.service.js'
 import type { CharacterService } from '../character/character.service.js'
 
