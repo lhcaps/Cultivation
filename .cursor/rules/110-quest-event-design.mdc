@@ -1,0 +1,348 @@
+# Quest and Event Design — Thiên Nam Engine
+
+> Rules for designing quests, events, encounters, and world activities that produce both narrative text and game data.
+
+---
+
+## Core Principle: Every Event Is Dual-Natured
+
+Every quest and event has two aspects:
+
+1. **Narrative** — The story the player experiences (written prose)
+2. **Data** — The game mechanics that make it work (JSON/TypeScript)
+
+Both must be created together. Narrative must match data. Data must enable narrative.
+
+---
+
+## Event Schema
+
+All events follow this structure:
+
+```typescript
+interface WorldEvent {
+  id: string;                      // kebab-case: "world-boss-tao-giao"
+  name: string;                   // "Vạn Độc Giáo nổi dậy"
+  type: EventType;                // "WORLD_BOSS" | "SEASON" | "MINIGAME" | "LORE"
+  scope: Scope;                    // "SERVER" | "REGION" | "SECT" | "PERSONAL"
+  region?: RegionId;              // Required for REGION scope
+  faction?: FactionId;            // Optional: aligned faction
+  startAt: Date;
+  endAt: Date;
+
+  narrative: {
+    announcement: string;         // 2-4 sentences, public log format
+    progress: string[];            // Array of progress messages
+    completion: string;            // Summary of outcome
+    failure?: string;             // If event can fail
+  };
+
+  effects: EventEffect[];         // Game effects while active
+
+  rewards: EventReward[];          // What players can earn
+
+  requirements: EventRequirement;  // Who can participate
+
+  choices?: EventChoice[];         // Player decision points
+
+  logs: EventLogConfig;            // How to announce
+}
+
+interface EventEffect {
+  type: "BUFF" | "DEBUFF" | "SPAWN" | "UNLOCK" | "CLOSE";
+  target: "PLAYER" | "SECT" | "REGION" | "ALL";
+  effect: {
+    cultivationSpeed?: number;
+    encounterRate?: number;
+    dropRate?: number;
+    bossId?: string;
+    regionId?: string;
+    unlockContent?: string;
+  };
+}
+
+interface EventReward {
+  type: "CURRENCY" | "ITEM" | "TITLE" | "REPUTATION";
+  currency?: { type: string; amount: number };
+  item?: { itemId: string; chance: number };
+  title?: { id: string; name: string };
+  reputation?: { factionId: string; amount: number };
+}
+
+interface EventRequirement {
+  realmMin?: RealmId;
+  realmMax?: RealmId;
+  sectRequired?: boolean;
+  regionRequired?: RegionId;
+  questCompleted?: string;
+}
+```
+
+---
+
+## Event Design Checklist
+
+Before an event is added to the database:
+
+- [ ] Has narrative text for all states (announce, progress, complete, fail)
+- [ ] Has game data that matches narrative
+- [ ] Rewards don't break economy (check with economy rules)
+- [ ] Requirements are appropriate for target audience
+- [ ] Duration is appropriate for event type
+- [ ] Can be rolled back if needed
+- [ ] Logged in `WorldEvent` table with full data
+- [ ] Has preview in admin panel before publish
+
+---
+
+## Event Types
+
+### Personal Events (Personal scope)
+
+- Triggered by `/encounter`, `/mission`, or RNG
+- Ephemeral — only the player sees it
+- Can have 1-3 choices
+- Rewards are minor (silver, small cultivation bonus, herbs)
+- Cannot fail catastrophically
+
+**Example:** Encountering an injured herb gatherer on the road.
+
+### Regional Events (Region scope)
+
+- Affect all players in a region
+- Can have public log announcements
+- Medium duration (1-24 hours)
+- Can affect encounter rates, drop rates, spawn rare enemies
+
+**Example:** A sandstorm in Tây Vực.
+
+### Server Events (Server scope)
+
+- Affect all players
+- Public log announcements required
+- Major duration (3-30 days)
+- Can include world bosses, season themes, major lore
+
+**Example:** Đại Hội Võ Lâm (Grand Martial Assembly).
+
+### World Boss Events (Boss scope)
+
+- Spawns a boss at a location
+- Players can fight the boss for rewards
+- Boss has HP, attack, defense — stored in DB
+- Victory triggers large reward distribution
+- Defeat (boss timer expires) has narrative consequence
+
+**Example:** Hải Vương rises from the depths.
+
+---
+
+## Quest Design
+
+### Quest Schema
+
+```typescript
+interface Quest {
+  id: string;
+  name: string;
+  type: "ESCORT" | "HUNT" | "GATHER" | "INVESTIGATE" | "MANHUNT" | "SECT" | "HIDDEN";
+
+  narrative: {
+    hook: string;           // How the quest is presented
+    objective: string;       // Clear statement of what to do
+    completion: string;     // Success message
+    failure: string;         // Failure message
+  };
+
+  requirements: QuestRequirement;
+
+  duration: {
+    type: "INSTANT" | "TIMED" | "ONGOING";
+    hours?: number;
+  };
+
+  risk: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+
+  rewards: QuestReward[];
+
+  impact: QuestImpact;       // How this affects the world
+}
+
+interface QuestImpact {
+  factionRelations?: Record<string, number>;
+  regionState?: Record<string, unknown>;
+  unlocksQuest?: string;
+  closesQuest?: string;
+}
+```
+
+### Quest Design Rules
+
+1. **Every quest has a clear goal** — "Collect 5 Dược Thảo" not "Help the herbalist"
+2. **Every quest has meaningful choice** — Even escort quests can have: fight, negotiate, or flee
+3. **Every quest has consequence** — Success, partial success, or failure each have outcomes
+4. **Rewards match risk** — No "slay the dragon" quests with herb rewards
+5. **Quests can chain** — Completing one unlocks the next
+6. **Quests can conflict** — Some quests are mutually exclusive
+
+---
+
+## Encounter Design
+
+Encounters are personal, ephemeral, and data-driven.
+
+### Encounter Schema
+
+```typescript
+interface EncounterDefinition {
+  id: string;
+  regionId: RegionId;
+  realmMin: RealmId;
+  realmMax: RealmId;
+  weight: number;             // Higher = more common
+
+  narrative: {
+    title: string;
+    description: string;       // 1-2 sentences of setup
+    setup: string;             // Where/when the player finds this
+  };
+
+  choices: EncounterChoice[];  // 2-4 choices
+}
+
+interface EncounterChoice {
+  label: string;              // Button label
+  narrative: string;           // What happens if chosen
+
+  effects: {
+    cultivationPoints?: number;
+    silver?: number;
+    spiritStones?: number;
+    reputation?: number;
+    heartDemon?: number;
+    itemGain?: string[];
+    reputationFaction?: Record<string, number>;
+  };
+
+  risk?: {
+    type: "INJURY" | "COMBAT" | "HEART_DEMON";
+    chance: number;
+    severity: number;
+  };
+
+  requirements?: {
+    itemRequired?: string;
+    realmMin?: RealmId;
+    reputationMin?: number;
+  };
+}
+```
+
+### Encounter Examples
+
+**Dược Nông (Herb Gatherer):**
+```
+Narrative: Trên đường tu luyện, bạn gặp một lão nông bị thương
+nằm bên đường mòn.
+
+Choice A: Giúp lão nông chữa lành
+  Effects: silver -20, reputation +10
+Choice B: Bỏ qua và tiếp tục
+  Effects: luck +2
+Choice C: Cướp đồ của lão
+  Effects: silver +100, reputation -30, heartDemon +5
+```
+
+**Kỳ Ngộ Thiên Tài:**
+```
+Narrative: Một lão nhân mặc áo trắng xuất hiện trước mặt bạn.
+Ông mỉm cười: "Ngươi có duyên với Thanh Vân Quyết."
+
+Choice A: Lễ phép nhận truyền thừa
+  Effects: cultivationPoints +500, heartDemon -5
+Choice B: Hỏi han lão nhân
+  Effects: itemGain ["THANH_TAM_DAN"], luck +5
+```
+
+---
+
+## Reward Design Rules
+
+### Economy Safety
+
+| Reward Type | Cap per Event | Economy Check |
+|------------|--------------|--------------|
+| Silver | 5,000 Ag | No issue |
+| Spirit Stones | 100 ST | Warn if >50 |
+| Cultivation Points | 1% of realm total | Warn if >2% |
+| Items | 3 items max | Check item value |
+| Reputation | 50 Rep | Warn if >100 |
+| Merit | 50 Mer | No issue |
+
+### Reward Distribution
+
+**Personal events:** Minor rewards, distributed immediately.
+
+**Regional events:**
+- Small rewards for participation
+- Larger rewards for leaders
+- Distributed at event end
+
+**Server events:**
+- Participation reward (everyone gets something)
+- Achievement reward (top performers get more)
+- Loot distribution based on contribution
+
+---
+
+## Event Design Anti-Patterns
+
+### WRONG: Rewards That Break Economy
+
+```
+Event: "Daily Login Bonus"
+Reward: +10,000 Silver per day
+Problem: 10,000 Ag/day × 30 days = 300,000 Ag/month. Economy inflation.
+```
+
+### RIGHT: Rewards Match Economy Sink
+
+```
+Event: "Daily Login Bonus"
+Reward: +100 Silver + 1% chance of +10 Spirit Stones
+Problem: Manageable economy impact.
+```
+
+### WRONG: No Player Choice
+
+```
+Encounter: "You found 100 Silver on the ground."
+Action: Auto-collect
+Problem: No decision = no engagement.
+```
+
+### RIGHT: Choice With Trade-offs
+
+```
+Encounter: "You found a wounded merchant and a pouch of silver."
+Choice A: Help the merchant → silver -50, reputation +20, possible future quest
+Choice B: Take the silver → silver +100, reputation -10, possible future enemy
+Choice C: Report to local authority → silver +10, reputation +5, small cultivation bonus
+```
+
+### WRONG: Events With No Narrative
+
+```
+Event: "Boss spawned! Click to attack!"
+Problem: No story, no atmosphere.
+```
+
+### RIGHT: Events With Lore Context
+
+```
+Event: "Hải Vương rises"
+Lore: "Cổ truyền rằng mỗi trăm năm, Hải Vương thức dậy từ đáy biển
+Đông Hải. Người tu tiên nào đánh bại được hắn sẽ được ban phước
+từ Long Vương."
+Gameplay: Boss spawns at Đông Hải. Players can attack once per hour.
+```

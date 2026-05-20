@@ -1,0 +1,270 @@
+# Worldbuilding and Lore — Thiên Nam Engine
+
+> Rules for creating, maintaining, and evolving the world's lore, factions, regions, sects, and NPCs.
+
+---
+
+## Core Principle: Lore Serves Gameplay
+
+Every piece of lore exists to make gameplay richer. Lore that doesn't connect to mechanics is decoration. Decoration is fine, but it should never contradict mechanics.
+
+---
+
+## Lore Hierarchy
+
+```
+World Bible (docs/)
+    └── Canonical lore: realms, regions, factions, core cosmology
+        ↓
+Knowledge Base (kb/)
+    └── Canonical details: NPC profiles, event history, sect conflicts
+        ↓
+Game Data (Database)
+    └── Concrete instances: specific sect members, spawned NPCs, active events
+```
+
+**Rule:** Higher levels can override lower levels. If `docs/world-bible.md` contradicts `kb/canon/sects.md`, the World Bible wins. If the World Bible contradicts game data (a player-created sect), game data wins for that instance.
+
+---
+
+## Vietnamese Xianxia/Wuxia Tone
+
+The world of Thiên Nam draws from Vietnamese and Sino-Vietnamese literary traditions, not western fantasy or mainstream Chinese cultivation tropes.
+
+### Voice and Style
+
+| Element | Right | Wrong |
+|---------|-------|-------|
+| Realm names | Luyện Thể, Khí Tức | Mortal Stage, Qi Gathering |
+| Sect names | Thanh Vân Tông, U Minh Môn | Azure Cloud Sect, Shadow Cult |
+| Currency | Bạc, Linh Thạch, Công Huân | Gold, Spirit Stones, Merit Points |
+| Factions | Chính Đạo, Tà Đạo | Good, Evil |
+| Tone | Classical Vietnamese prose | Modern internet slang |
+
+### Naming Conventions
+
+**Character names:**
+- 2-4 Hán-Việt characters
+- Format: `Họ + Tên đệm + Tên` or `Tên tự xưng`
+- Examples: **Lý Hàn**, **Tô Minh Châu**, **Dương Vũ Sinh**, **Nhuận Dao**
+
+**Sect names:**
+- Format: `[Tính chất] + [Loại tông môn]`
+- Suffixes: **Tông**, **Môn**, **Cốc**, **Phái**, **Cung**, **Hội**, **Đường**
+- Examples: Thanh Vân Tông, Hỏa Vân Cốc, U Minh Môn, Võ Đang Phái
+
+**Region names:**
+- Vietnamese geography-inspired
+- Examples: Đại Việt, Trung Nguyên, Tây Vực
+
+### Prose Style
+
+**Public log messages:**
+
+```
+Thiên Đạo truyền âm:
+[Character name] đã [action] tại [location].
+[Narrative description, 1-3 sentences, poetic but concise]
+```
+
+**Example:**
+```
+Thiên Đạo truyền âm:
+Lý Hàn đã vượt qua cửa ải Kim Đan tại Thiên Thành.
+Huyền quang bùng nổ, kim quang chiếu rọi ba dặm.
+Nguyên Anh hình thành trong tâm hải, tỏa ra khí tức vô thượng.
+```
+
+**Never write:**
+- Overly purple prose
+- Exposition dumps in log messages
+- Direct references to game mechanics
+- Western fantasy naming or idioms
+
+---
+
+## World Bible Contents
+
+`docs/world-bible.md` is the canonical source for:
+
+| Topic | Content |
+|-------|---------|
+| Cosmology | The origin of the world, the Void, the Heavenly Stairway |
+| 10 Realms | Full definitions with mechanics |
+| 8 Regions | Climate, specialty, sect bonus, hazard |
+| 50 Sects | Names, alignment, rank, benefits, HQ |
+| 5 Resources | Currencies with acquisition and sink |
+| NPC Pantheon | Celestial bureaucracy, regional NPCs |
+| Factions | Chính Đạo, Tà Đạo, Trung Lập |
+| Tribulations | Types and severity |
+| World Timeline | Major eras and events |
+
+---
+
+## Knowledge Base Structure
+
+```
+kb/
+├── canon/
+│   ├── world-overview.md       # One-page world summary
+│   ├── cultivation-realms.md  # Detailed realm lore
+│   ├── regions.md            # Detailed region descriptions
+│   ├── sects.md              # Detailed sect descriptions
+│   └── faction-relations.md  # Faction dynamics
+├── narrative/
+│   ├── tone-guide.md         # Writing voice and style
+│   ├── dialogue-guide.md     # NPC dialogue conventions
+│   ├── scene-template.md     # Scene writing structure
+│   └── chapter-template.md   # Event narrative structure
+├── game-design/
+│   ├── player-loop.md        # Core gameplay loop
+│   ├── event-schema.md       # How events are written
+│   └── economy-rules.md      # Economic lore
+└── adr/
+    ├── 0001-discord-is-client-only.md
+    ├── 0002-core-engine-is-pure-typescript.md
+    └── 0003-all-actions-are-logged.md
+```
+
+---
+
+## Sect Design Standards
+
+Every sect in the World Bible and Knowledge Base MUST have:
+
+| Field | Example |
+|-------|---------|
+| **ID** | `THANH_VAN_TONG` |
+| **Name** | Thanh Vân Tông |
+| **Region** | Đại Việt |
+| **Alignment** | Chính Đạo |
+| **Rank** | ★★★ |
+| **Headquarters** | Thanh Vân Sơn |
+| **Signature Art** | Thanh Vân Kiếm Quyết |
+| **Specialty** | Thủy công, luyện đan |
+| **Benefits** | +10% cultivation, +20% healing |
+| **Internal Conflict** | Old guard vs reformist |
+| **Enemy** | Vạn Độc Giáo |
+| **Ally** | Chính Dương Tông |
+
+### Sect Personality
+
+Each sect should feel distinct:
+
+- **Thanh Vân Tông**: Elegant, scholarly, slightly aloof. Their members speak carefully and value precision.
+- **Võ Đang Phái**: Disciplined, martial, honor-bound. Direct speech, respect hierarchy.
+- **Vạn Độc Giáo**: Calculating, ruthless, pragmatic. Will negotiate before betraying.
+- **U Minh Môn**: Ominous, cryptic, patient. Short sentences, lots of silence.
+
+---
+
+## NPC Design Standards
+
+Every major NPC in the knowledge base MUST have:
+
+| Field | Content |
+|-------|---------|
+| **Name** | Unique identifier |
+| **Title** | Formal title (e.g., "Lương Y") |
+| **Affiliation** | Sect or independent |
+| **Location** | Where they can be found |
+| **Role** | Quest giver, shop keeper, lore source |
+| **Personality** | 2-3 sentences |
+| **Voice** | How they speak (see dialogue guide) |
+| **Quirk** | One memorable detail |
+| **Knowledge** | What they know about the world |
+
+---
+
+## Event Narrative Structure
+
+Events have both **lore text** and **game data**. Both must be consistent.
+
+### Lore Text
+
+```
+**Event Name**: [Short evocative name]
+**Lore**: [2-4 sentences establishing the event in world terms]
+**Mechanics**: [How players interact]
+
+[If multi-step]
+**Choice A**: [Lore justification]
+  → [Effect]
+**Choice B**: [Lore justification]
+  → [Effect]
+```
+
+### Game Data
+
+```typescript
+interface WorldEvent {
+  id: string;
+  name: string;
+  region: RegionId;
+  faction?: FactionId;
+  startAt: Date;
+  endAt: Date;
+  effects: EventEffect[];
+  rewards: EventReward[];
+  requirements: EventRequirement;
+  narrative: {
+    announcement: string;
+    progress: string[];
+    completion: string;
+    failure: string;
+  };
+}
+```
+
+---
+
+## Continuity Rules
+
+### What Can Change
+
+- Player-created sects (can be dissolved)
+- Active events (can end)
+- NPC locations (can move)
+- Minor NPC details (personality tweaks)
+
+### What Cannot Change
+
+- The 10 realms and their order
+- The 8 regions and their locations
+- The 3 factions and their basic alignment
+- The 50 seeded sects and their core identity
+- Currency values in `packages/core`
+- Any lore that is in `docs/world-bible.md`
+
+### Conflict Resolution
+
+If new lore contradicts old lore:
+1. Check which source is higher in the hierarchy
+2. Update the lower source to match
+3. Document the change in `kb/adr/`
+
+---
+
+## Creating New Content
+
+### When to Create Lore
+
+- Before Phase 9+ (regions/encounters)
+- When adding a new sect
+- When creating world events
+- When designing NPCs
+
+### How to Create Lore
+
+1. Check `docs/world-bible.md` for canonical base
+2. Create detail in `kb/canon/`
+3. Update game data if applicable
+4. Document in the relevant skill
+
+### Lore Review
+
+Before major releases, do a **lore consistency pass**:
+- Check all sect descriptions match the World Bible
+- Check NPC affiliations match regions
+- Check event lore doesn't contradict realm mechanics
+- Check dialogue matches sect personality

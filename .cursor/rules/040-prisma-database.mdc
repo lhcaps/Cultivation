@@ -1,0 +1,298 @@
+# Prisma Database — Thiên Nam Engine
+
+> Rules for database schema design, Prisma usage, transaction patterns, and seed data management.
+
+---
+
+## Schema Design Principles
+
+### 1. Prisma Models = Domain Entities
+
+Every model represents a real domain concept. No "helper" tables.
+
+| Model | Domain Concept |
+|-------|---------------|
+| `User` | Discord user account |
+| `Character` | Player's cultivation character |
+| `Realm` | A cultivation realm (seeded data) |
+| `Region` | A geographic region (seeded data) |
+| `Sect` | A player or story sect |
+| `Item` | A game item (seeded data) |
+| `Manual` | A cultivation technique (seeded data) |
+| `CultivationSession` | A single cultivation action log |
+| `AdminAuditLog` | Admin action record |
+
+### 2. Required Fields on Every Model
+
+Every model MUST have:
+- `@id` — Primary key using `@default(cuid())`
+- `createdAt` — `@default(now())`
+- `updatedAt` — `@updatedAt` (on models with updates)
+
+### 3. Indexes
+
+Add indexes on:
+
+| Index Type | Fields | Why |
+|-----------|--------|-----|
+| Foreign key | `characterId`, `userId`, `sectId` | Fast joins |
+| Lookup | `discordId`, `name` | User/sect lookup |
+| Time | `createdAt` | Log queries, cleanup |
+| Composite | `[characterId, type]` on `Cooldown` | Unique cooldown per character |
+
+### 4. Relations
+
+- Use explicit relation fields (not `@relation` inline).
+- Use `onDelete: Cascade` for ownership (character → inventory).
+- Use `onDelete: SetNull` for optional relations (character → sect when leaving).
+- Avoid deeply nested relations (>3 levels).
+
+---
+
+## Transaction Rules
+
+### When to Use Transactions
+
+**Always use `$transaction` for:**
+
+```typescript
+// Character creation (creates user + character)
+await prisma.$transaction(async (tx) => {
+  const user = await tx.user.create({ data: { discordId, username } });
+  await tx.character.create({ data: { userId: user.id, ... } });
+});
+
+// Cultivation (update character + create log + update cooldown)
+await prisma.$transaction(async (tx) => {
+  await tx.character.update({ where: { id }, data: { cultivationPoints: { increment: points } } });
+  await tx.cultivationSession.create({ data: { characterId: id, ... } });
+  await tx.actionLog.create({ data: { characterId: id, action: "CULTIVATE", ... } });
+});
+
+// Admin action (update character + create audit log)
+await prisma.$transaction(async (tx) => {
+  await tx.character.update({ where: { id }, data: { silver: { increment: amount } } });
+  await tx.adminAuditLog.create({ data: { adminId, action: "ITEM_GIVE", ... } });
+});
+```
+
+### Race Condition Prevention
+
+**Cooldowns:**
+
+```typescript
+// WRONG: Check then update (race condition)
+const existing = await prisma.cooldown.findUnique({ where: { characterId_type: { characterId, type } } });
+if (existing && existing.expiresAt > new Date()) throw new Error("Cooldown active");
+await prisma.cooldown.upsert({ ... }); // Another request could insert between check and upsert!
+
+// RIGHT: Upsert with condition
+await prisma.cooldown.upsert({
+  where: { characterId_type: { characterId, type } },
+  create: { characterId, type, expiresAt },
+  update: {
+    where: { characterId_type: { characterId, type } },
+    data: { expiresAt }, // Only update if the upsert itself succeeds
+  },
+});
+```
+
+**Currency/Inventory:**
+
+```typescript
+// WRONG: Read then write
+const char = await prisma.character.findUnique({ where: { id } });
+if (char.silver < cost) throw new Error("Not enough silver");
+await prisma.character.update({ where: { id }, data: { silver: { decrement: cost } } });
+
+// RIGHT: Update with condition
+const result = await prisma.character.updateMany({
+  where: { id, silver: { gte: cost } },
+  data: { silver: { decrement: cost } },
+});
+if (result.count === 0) throw new Error("Not enough silver");
+```
+
+---
+
+## Audit Logging
+
+### ActionLog (Player Actions)
+
+Created on every player action. Immutable.
+
+```typescript
+await prisma.actionLog.create({
+  data: {
+    characterId: character.id,
+    action: "CULTIVATE", // or "BREAKTHROUGH", "ALCHEMY", "ENCOUNTER", etc.
+    details: { mode: "STABLE", points: 120 },
+    publicLog: false,
+  },
+});
+```
+
+### AdminAuditLog (Admin Actions)
+
+Created on every admin mutation. Immutable. **Never deleted.**
+
+```typescript
+await prisma.adminAuditLog.create({
+  data: {
+    adminId: admin.userId,
+    adminRole: admin.role,
+    action: "ITEM_GIVE",
+    targetType: "character",
+    targetId: character.id,
+    targetName: character.name,
+    previousValue: null,
+    newValue: { itemId: "TRUC_MACH_DAN", quantity: 1 },
+    reason: "Compensation for server bug on 2024-01-15",
+    evidence: "https://discord.com/channels/...",
+  },
+});
+```
+
+---
+
+## Seed Data Rules
+
+### What Goes in Seeds
+
+| Category | Examples |
+|----------|----------|
+| Realms | 10 cultivation realms |
+| Regions | 8 geographic regions |
+| Sects | 50 sects (with names, alignment, rank) |
+| Items | 30 starting items |
+| Manuals | 20 starting cultivation techniques |
+| Alchemy recipes | 10 base recipes |
+| Encounters | 30 encounter templates |
+| World events | 5 initial event templates |
+
+### Seed File Organization
+
+```
+packages/db/prisma/
+├── schema.prisma
+├── seed.ts              # Full seed: realms + regions + sects + items + manuals + recipes + encounters
+└── seeds/
+    ├── realms.seed.ts   # Optional: split seeds for cleaner management
+    ├── regions.seed.ts
+    ├── sects.seed.ts
+    ├── items.seed.ts
+    └── ...
+```
+
+### Seed Best Practices
+
+```typescript
+// Use upsert to make seeds idempotent
+await prisma.realm.upsert({
+  where: { order: 1 },
+  update: { /* keep existing */ },
+  create: { id: "LUYEN_THE", name: "Luyện Thể", order: 1, ... },
+});
+
+// Wrap in try-catch with descriptive error
+try {
+  await seedRealms();
+} catch (error) {
+  throw new Error(`Failed to seed realms: ${error instanceof Error ? error.message : error}`);
+}
+```
+
+---
+
+## Query Patterns
+
+### Fetching Character with Relations
+
+```typescript
+// Always eager-load what you need
+const character = await prisma.character.findUnique({
+  where: { id },
+  include: {
+    realm: true,
+    region: true,
+    sect: true,
+    manual: true,
+    inventories: { include: { item: true } },
+  },
+});
+
+// Convert to plain object for core engine
+const characterState: CharacterState = {
+  id: character.id,
+  name: character.name,
+  realm: character.realmId as RealmId,
+  cultivationPoints: character.cultivationPoints,
+  // ... all fields
+  // Note: Prisma relation fields are nested objects, core expects flat structure
+};
+```
+
+### Pagination
+
+```typescript
+// For large result sets
+const page = Math.max(1, pageParam ?? 1);
+const pageSize = Math.min(50, pageSizeParam ?? 20);
+
+const results = await prisma.actionLog.findMany({
+  where: { characterId },
+  orderBy: { createdAt: "desc" },
+  skip: (page - 1) * pageSize,
+  take: pageSize,
+  include: { character: { select: { name: true } } },
+});
+```
+
+---
+
+## Migrations
+
+### Creating Migrations
+
+```bash
+# Create migration
+pnpm --filter @thien-nam/db migrate dev --name add_world_event_effects
+
+# Apply to production
+pnpm --filter @thien-nam/db migrate deploy
+```
+
+### Migration Rules
+
+1. **Never modify existing migrations** — Create a new one.
+2. **Test migrations locally** before applying to any shared environment.
+3. **Name migrations descriptively** — `add_sect_rank_system`, not `update_1`.
+4. **Data migrations** (moves, transforms) use separate migration files from schema changes.
+5. **Before destructive migrations** (DROP COLUMN, DROP TABLE), verify no data is lost.
+
+---
+
+## Schema Change Checklist
+
+Before modifying `schema.prisma`:
+
+- [ ] Is this change backward compatible?
+- [ ] Do existing seeds need updating?
+- [ ] Do existing API endpoints need updating?
+- [ ] Are there migrations needed?
+- [ ] Are there test fixtures that need updating?
+- [ ] Have I reviewed the `AdminAuditLog` implications?
+- [ ] Have I documented the change in `kb/adr/`?
+
+---
+
+## Performance Guidelines
+
+| Pattern | Recommendation |
+|---------|---------------|
+| `select` | Always specify fields, avoid `select: { *: true }` |
+| `include` | Only include relations you need |
+| `findMany` | Always use `take` with limits |
+| `count` | Use `count()` instead of `findMany().length` |
+| Indexes | Add on foreign keys and queried fields |
+| Raw queries | Avoid `prisma.$queryRaw` unless necessary |

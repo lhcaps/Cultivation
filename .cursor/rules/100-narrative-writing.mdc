@@ -1,0 +1,236 @@
+# Narrative Writing — Thiên Nam Engine
+
+> Rules for writing in-world narrative: public log messages, NPC dialogue, scene descriptions, and event text.
+
+---
+
+## Core Principle: Rich But Not Bloated
+
+The best xianxia prose is evocative without being purple. Every sentence earns its place. Cut adverbs. Cut exposition. Let imagery do the work.
+
+---
+
+## Writing Voice
+
+### The Narrator
+
+The narrator of Thiên Nam Engine speaks with classical authority. Think: a wise elder recounting history to young disciples.
+
+**Characteristics:**
+- **Authoritative** — States facts with confidence
+- **Observant** — Notices details others miss
+- **Measured** — Drama is real, not performed
+- **Poetic but clear** — Beautiful images, direct meaning
+
+**Example:**
+
+```
+WRONG: The wind howled ominously as the cultivator stood atop the peak,
+looking out at the vast landscape before him with a determined expression
+on his face, his heart heavy with the weight of his destiny as he
+prepared for the trial ahead.
+
+RIGHT: Gió cuốn tuyết trên đỉnh Kiếm Phong. Lý Hàn đứng im,
+trông xuống Thiên Thành — ánh đèn khuya như muôn vàn đom đóm
+trên mặt đất. Sắp rồi.
+```
+
+### Dialogue
+
+NPC dialogue reflects identity:
+
+| NPC Type | Speech Pattern |
+|----------|---------------|
+| **Sect Elder** | Formal, uses older forms of address, measured pace |
+| **Wandering Cultivator** | Direct, practical, world-weary |
+| **Market Merchant** | Warm, persuasive, humorously mercantile |
+| **Ghost/Spirit** | Cryptic, uses metaphor, avoids direct answers |
+| **U Minh Cultivator** | Cold, clinical, sometimes poetic in disturbing ways |
+| **Cổ (Ancient) Being** | Archaisms, unusual word order, deep calm |
+
+### Tone Guide
+
+**Do:**
+- Use Vietnamese imagery: phượng hoàng, rồng, mây, núi, sông, tuyết, lửa
+- Reference Vietnamese geography and history subtly
+- Match formality to sect/character status
+- Use silence and implication
+
+**Don't:**
+- Overuse "thiên" (heaven), "địa" (earth) as vague descriptors
+- Describe emotions directly — show them
+- Use modern slang or pop culture references
+- Write dialogue that sounds like a western translation
+
+---
+
+## Public Log Messages
+
+Public logs announce notable events to the whole server. They must be:
+- **Under 500 characters**
+- **Narrative voice** — no game mechanics visible
+- **Poetic but not purple** — evocative, not overwritten
+- **Accurate to the event** — don't exaggerate
+
+### Templates
+
+**Breakthrough Success:**
+
+```
+📢 **Thiên Đạo truyền âm:**
+[Name] đã vượt qua cửa ải [from realm] tại [location].
+[Huyền quang / Khí tức / Nguyên Anh] [verb] chiếu rọi [distance].
+[Moral or narrative note].
+```
+
+**Example:**
+```
+📢 Thiên Đạo truyền âm:
+Lý Hàn đã vượt qua cửa ải Kim Đan tại Thanh Vân Sơn.
+Kim quang bùng nổ, chiếu rọi ba dặm.
+Một ngôi sao mới lóe sáng trên bầu trời tu tiên.
+```
+
+**Cực Phẩm Alchemy:**
+
+```
+📢 **Thiên Đạo truyền âm:**
+[Name] đã luyện ra Cực Phẩm [pill name] tại [location].
+[Description of the pill's appearance/smell/feel].
+[Craft achievement note].
+```
+
+**World Boss Spawn:**
+
+```
+📢 **Thiên Đạo truyền âm:**
+[Entity name] đã xuất hiện tại [region].
+[Descriptive detail of the entity].
+Các tu sĩ Thiên Nam, hãy cùng chung sức!
+```
+
+**Character Death:**
+
+```
+📢 **Thiên Đạo truyền âm:**
+[Name] đã ngã xuống tại [location].
+[Manner of death — poetic, not graphic].
+Hồn phách [he/she] bay về phương trời.
+```
+
+---
+
+## Scene Writing
+
+Every scene — whether for an encounter, event, or NPC interaction — follows this structure:
+
+```
+**Setup** (1-2 sentences)
+↓
+**Detail** (1-2 sentences of sensory/atmospheric detail)
+↓
+**Choice/Action** (What the player encounters)
+↓
+**Consequence** (What happens based on choice, or what the action reveals)
+```
+
+### Encounter Scene Example
+
+```
+**Setup:** Trên đường tu luyện, bạn phát hiện một lão nhân
+đang ngồi bên suối trong rừng.
+
+**Detail:** Ông ấy mặc áo vải thô, tóc bạc phơ, đôi mắt sáng
+như có hai vì sao nhỏ. Bên cạnh là một cây gậy gỗ mục,
+trên đầu gậy có một quả ấn trúc.
+
+**Choice/Action:** Lão nhân mỉm cười, nói:
+"Ngươi có duyên. Ta sẽ chỉ cho ngươi một bí quyết."
+
+[1] Lễ phép nhận lời
+[2] Hỏi han lão nhân
+[3] Cảm ơn và rời đi
+
+**Consequence:** (varies by choice)
+```
+
+---
+
+## NPC Dialogue
+
+### Dialogue Conventions
+
+- **No speech tags** (said, exclaimed, whispered) — let tone indicate
+- **Vietnamese honorifics**: "Ngươi" (you, informal), "Tiểu tử" (young man), "Lão nhân" (elder)
+- **Sect-specific**: Sect members use formal address with elders
+- **No quotation marks** — use: `「」` or `「」`
+
+### Sample Dialogue
+
+**Sect Elder (formal):**
+```
+「Ngươi đến Thanh Vân Sơn làm gì?」
+「Ta nghe nói nơi này có đan dược trị liệu.」
+「Đúng. Nhưng đan dược không cho kẻ không có duyên.」
+```
+
+**Wandering Cultivator (direct):**
+```
+「Ngươi đi đâu?」
+「Tây Vực. Tìm một người。」
+「Tìm ai?」
+「Người đã giết sư phụ ta.」
+```
+
+**Ghost (cryptic):**
+```
+「Ta đã đợi ngươi rất lâu.」
+「Ngươi là ai?」
+「Ta là kẻ đã chết. Ngươi sẽ là ai?」
+```
+
+---
+
+## Event Text Standards
+
+### Announcement Text
+
+```
+**Thiên Đạo truyền âm:**
+
+[Event name] đã bắt đầu!
+
+[lore paragraph — 2-4 sentences establishing the event's place in world history/legend]
+
+Thời gian: [duration]
+Cách tham gia: [mechanism]
+Phần thưởng: [preview, not full mechanics]
+```
+
+### Progress Text
+
+Each progress message is 1-2 sentences. No game mechanics visible.
+
+### Completion Text
+
+```
+**Thiên Đạo truyền âm:**
+[Event name] đã kết thúc.
+
+[lore summary of what happened]
+```
+
+---
+
+## Quality Checklist
+
+Before writing is finalized:
+
+- [ ] Under character limits (public log: 500, scene: varies)
+- [ ] No game mechanics visible in narrative text
+- [ ] Correct honorifics and address forms
+- [ ] Matches sect/faction personality
+- [ ] Uses Vietnamese imagery, not western fantasy tropes
+- [ ] Active verbs, no -ly adverbs
+- [ ] Reads well aloud
+- [ ] Consistent with World Bible and Knowledge Base

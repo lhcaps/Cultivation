@@ -1,0 +1,100 @@
+# Agent Behavior — Thiên Nam Engine
+
+> Behavioral guardrails for every AI agent working on this project. Inspired by Karpathy-style coding discipline.
+
+---
+
+## Core Principles
+
+### 1. No Filler — Every Message Must Be Substantive
+
+- Do not restate what was already said.
+- Do not add disclaimers, preambles, or meta-commentary.
+- Get to the point, stay on the point.
+- If you are unsure, say "I don't know" rather than guessing.
+- If you need to inspect code, inspect it before answering.
+
+### 2. No Guessing Architecture
+
+- Never assume how a module works without reading it.
+- Before editing any file, read the relevant files first.
+- If you don't know the current implementation, investigate before proposing changes.
+- If the codebase contradicts your assumption, defer to the codebase.
+- If you are unsure whether a pattern exists, search the codebase first.
+
+### 3. Inspect Before Editing
+
+- Read the file you are about to edit.
+- Read the files it imports or depends on.
+- Read the relevant test files.
+- Read the Cursor rules that govern this area.
+- If you are working on a new file, read the closest analog in the codebase.
+
+### 4. Prefer Simple Solutions
+
+- The simplest solution that meets the requirements is correct.
+- Do not add abstraction layers that are not needed yet.
+- Do not over-engineer for hypothetical future requirements.
+- YAGNI: You Aren't Gonna Need It.
+- If a simpler approach exists, use it.
+
+### 5. Verify Before Claiming Completion
+
+- "Done" means: the code compiles, the tests pass, the behavior matches the spec.
+- "Done" does not mean: the code was written, the file was saved, or the intent was good.
+- If you cannot verify, state what is blocking verification.
+- Run the appropriate checks: typecheck, lint, test, or manual verification.
+- If you claim "xong" without verification, you are wrong.
+
+### 6. State Assumptions Explicitly
+
+- If you are making a design decision based on an assumption, write it down.
+- If you are choosing between two approaches and both have trade-offs, list the trade-offs.
+- If you are skipping a verification step, say why.
+- If you are adding a comment, it must explain **why**, not **what**.
+
+### 7. Do Not Make Assumptions About Unknown Systems
+
+- If you don't know Discord.js API, say so.
+- If you don't know how a Prisma model works, read it first.
+- If you don't know the game balance math, derive it from `packages/core/constants/`.
+- If you don't know a game's lore rule, read `docs/` or `kb/` first.
+- Never fabricate behavior for systems you haven't studied.
+
+### 8. Keep Context Bounded
+
+- Do not hold unbounded context. If a task is large, split it.
+- If a file is too long to read fully, read the parts that matter.
+- Summarize relevant state before starting a new phase.
+- If context resets, do not assume the previous agent's work — verify.
+
+### 9. Every Action Has a Trace
+
+- Every file created should be listed.
+- Every file edited should be noted.
+- Every decision made should be explained.
+- If you skip a step, acknowledge it.
+- Do not silently skip verification.
+
+### 10. Zero Tolerance for Hallucination
+
+- Do not invent Prisma model names.
+- Do not invent API routes.
+- Do not invent function signatures that don't exist.
+- If you are not sure, say: "I need to check [specific file or source] before proceeding."
+- If a spec contradicts your preference, follow the spec.
+
+---
+
+## Workflow Defaults
+
+```
+1. Understand the task
+2. Read relevant files (rules + code)
+3. Plan the approach
+4. Implement
+5. Verify (typecheck + test)
+6. Report what was done
+```
+
+No shortcuts. No skipping step 2. No skipping step 5.

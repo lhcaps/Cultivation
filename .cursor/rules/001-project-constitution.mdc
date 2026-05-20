@@ -1,0 +1,150 @@
+# Project Constitution — Thiên Nam Engine
+
+> The non-negotiable identity and principles of this project. Every rule, every skill, every decision flows from this document.
+
+---
+
+## Product Identity
+
+**Thiên Nam Engine** is a Discord-first Vietnamese xianxia/wuxia cultivation RPG.
+
+The vision: a living world where players cultivate, form sects, attend world events, and leave their mark on a shared narrative — through a Discord interface that feels like a terminal from a martial arts novel.
+
+### Core Product Pillars
+
+1. **Discord is the first client, not the game.**
+   - The bot is a UI adapter. The game engine is the truth.
+   - If we add a web client later, the engine must not change.
+
+2. **Cultivation is slow and meaningful.**
+   - Progress takes time. Every advancement is earned.
+   - Forced cultivation risks injury. Breakthrough can fail. Alchemy can backfire.
+   - There is no "spam button" mechanic.
+
+3. **The world is shared but personal.**
+   - Public logs announce notable events to the whole server.
+   - Personal menus (cultivation, stats, alchemy) are ephemeral — only the player sees them.
+   - No player spoils another player's experience.
+
+4. **Admin ("Thiên Đạo") has power, but is accountable.**
+   - Every admin action is logged in `AdminAuditLog`.
+   - Admin can create events, spawn bosses, and manage the world — but never silently.
+
+5. **Content is generated and structured.**
+   - Lore is rich but not bloated.
+   - NPCs have names, allegiances, and quirks.
+   - Events output both narrative text and game data.
+
+---
+
+## Non-Negotiable Architecture Principles
+
+These cannot be overridden by any rule, skill, or agent request.
+
+| Principle | Why |
+|-----------|-----|
+| Discord bot = UI adapter only | Allows future web client without rewrite |
+| Game rules in `packages/core` as pure TypeScript | Engine is testable, portable, replayable |
+| All game data seeded, not hardcoded | Admin can modify without code deployment |
+| Every player action → `ActionLog` | Full audit trail for game integrity |
+| Every admin action → `AdminAuditLog` | Accountability for Thiên Đạo |
+| Personal UI = ephemeral | Players don't flood channels |
+| `custom_id` validates `userId` | No player can affect another's character |
+| Prisma transactions for state changes | No partial state from crashes |
+| No secrets in code | `.env` only, `.gitignore` enforced |
+
+---
+
+## Lore and Tone
+
+### The World: Thiên Nam
+
+A cultivation world inspired by Vietnamese xianxia/wuxia traditions. Not a copy of any existing IP.
+
+- 10 cultivation realms: Luyện Thể → Ngũ Bất Tôn
+- 8 regions: Đại Việt, Trung Nguyên, Tây Vực, U Minh, Đông Hải, Bắc Mạc, Nam Man, Côn Lôn
+- 50+ sects with distinct identities, allegiances, and conflicts
+- 3 factions: Chính Đạo, Tà Đạo, Trung Lập
+
+### Tone: Vietnamese Literary Wuxia
+
+- Prose is rich but not purple. Use imagery from nature, martial arts, and classical literature.
+- NPC dialogue reflects identity: sect, region, social status, moral alignment.
+- Public log messages feel like narrator voice — authoritative, poetic, concise.
+- Private UI is utilitarian but thematic — cultivation bars, stat displays, button menus.
+- **No western fantasy naming conventions.** Names are Vietnamese or Sino-Vietnamese.
+- **No copyrighted IP references.** No "Qi" spelled "Chi", no "Jade" for everything, no generic "sect master".
+
+### Forbidden Lore Elements
+
+- No references to existing copyrighted xianxia IP (IET, Coiling Dragon, etc.)
+- No western fantasy tropes dressed in Chinese names
+- No anachronistic modern references
+- No sexual violence, graphic torture, or content that would violate Discord ToS
+
+---
+
+## Game Design Non-Negotiables
+
+| Rule | Rationale |
+|------|-----------|
+| No instant max-level gratification | Destroys long-term engagement |
+| No purchasable power via real money | Pay-to-win destroys community |
+| Breakthrough must have failure risk | Without risk, advancement is hollow |
+| Alchemy must have quality variance | Quality is the skill ceiling |
+| Economy must have sinks | Inflation destroys game health |
+| No unbounded farming | Rate limits on all grindable actions |
+
+---
+
+## Testing Philosophy
+
+- **Unit tests for core engine** — all formulas must be proven correct.
+- **Integration tests for API services** — state changes must be verified.
+- **No test = not done.** For any feature in `packages/core`.
+- **Human verification for lore** — AI-generated narrative needs a human review pass.
+
+---
+
+## Project Roadmap (High Level)
+
+| Phase | Focus | Key Deliverable |
+|-------|-------|----------------|
+| 0 | World Bible + Spec | `docs/` complete |
+| 1 | Monorepo Foundation | pnpm + Turbo + Docker |
+| 2 | Database Schema V1 | Prisma schema + seed |
+| 3 | Bot MVP | `/start`, `/profile`, `/cultivate` working |
+| 4 | Game Engine Core | Pure TypeScript rules with tests |
+| 5-7 | Cultivation + Breakthrough + Alchemy | Full mini-games |
+| 8 | Sect System | Sect join, contribute, shop |
+| 9 | Region + Encounter Engine | Region travel, encounters |
+| 10 | Admin Panel | Event creation, player management |
+| 11-15 | Economy, Missions, Combat, Seasons, Wars | Full feature set |
+
+---
+
+## Naming Standards
+
+| Category | Convention | Example |
+|----------|-----------|---------|
+| Realm IDs | UPPER_SNAKE | `LUYEN_THE`, `KHI_TUC` |
+| Region IDs | UPPER_SNAKE | `DAI_VIET`, `U_MINH` |
+| Cultivation modes | UPPER_SNAKE | `STABLE`, `FORCED`, `SECLUSION` |
+| Alchemy quality | UPPER_SNAKE | `THAT_BAI`, `CUC_PHAM` |
+| Sub-stages | UPPER_VIET | `SƠ`, `TRUNG`, `HẬU` |
+| Files | kebab-case | `cultivation-rules.ts` |
+| Types/Interfaces | PascalCase | `CultivationResult` |
+| Constants | UPPER_SNAKE | `BASE_EXP_PER_SESSION` |
+
+---
+
+## Review and Update
+
+This document is reviewed and updated when:
+
+- A new phase begins
+- An architecture decision changes
+- A new game system is added
+- A lore conflict is discovered
+
+Do not update this document without understanding the full scope of changes.

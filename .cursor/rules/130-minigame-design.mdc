@@ -1,0 +1,311 @@
+# Mini-Game Design — Thiên Nam Engine
+
+> Rules for designing interactive mini-games: cultivation, breakthrough, alchemy, encounter, and combat.
+
+---
+
+## Core Principle: Meaningful Choice
+
+Every mini-game must have real choices. Not "click a button, get a result." Each option must have trade-offs that feel significant. Randomness is present, but player skill/decision affects the outcome.
+
+---
+
+## Cultivation Mini-Game
+
+### Design
+
+Cultivation is the core loop. The mini-game layer adds strategic depth to what could be "click button, get XP."
+
+### Modes and Trade-offs
+
+| Mode | Reward | Cost | Risk |
+|------|--------|------|------|
+| **Ổn Định Căn Cơ** | 0.8x base | Low | None |
+| **Cưỡng Ép Tu Luyện** | 1.5x base | Medium | 12% injury chance, +8 HD |
+| **Bế Quan 8 Giờ** | 3.0x base | High | Locks actions for 8h |
+| **Tu Luyện Tông Môn** | 1.2x base | Low | Must be in sect |
+
+### UI Flow
+
+```
+/cultivate
+  → [ephemeral menu, 4 buttons]
+  → [player clicks button]
+  → [Bot: validate cooldown, validate user]
+  → [API: resolveCultivation()]
+  → [Result: embed with gain details]
+  → [if notable: public log]
+```
+
+### Design Rules
+
+- [ ] Cooldown is visible before selection
+- [ ] Risk/reward is clear for each mode
+- [ ] Result shows contribution breakdown
+- [ ] Injury and heart demon are always shown
+- [ ] Public log only for extreme results (90+ stability roll)
+
+---
+
+## Breakthrough Mini-Game
+
+### Design
+
+Breakthrough is a high-stakes moment. The mini-game offers multiple paths with different risk/reward profiles.
+
+### Options and Trade-offs
+
+| Option | Success Rate | Reward on Success | Cost | Risk on Failure |
+|--------|-------------|-----------------|------|-----------------|
+| **Ổn Định** | base rate | +3 FQ | None | Minor |
+| **Cưỡng Ép** | base × 0.7 | +5 FQ | None | Severe: +2 injury, +15 HD |
+| **Dùng Đan** | base × 1.3 | +4 FQ | 1 pill | 5% pill poison |
+| **Mượn Trận** | base × 1.5 | +6 FQ | 50 merit | None |
+
+### Prerequisites Check
+
+Before showing options, check:
+
+```typescript
+const prereqs = {
+  cultivationFull: character.cultivationPoints >= realmTotal,
+  heartDemonOk: character.heartDemon < 80,
+  noSevereInjury: character.injuryLevel < 3,
+  hasManual: character.manualId !== null,
+};
+```
+
+### UI Flow
+
+```
+/breakthrough
+  → [check prerequisites]
+  → [if not met: show why + guidance]
+  → [if met: show current rate + options]
+  → [player selects option]
+  → [confirm dialog if using pill/merit]
+  → [execute: resolveBreakthrough()]
+  → [result: success animation or failure message]
+  → [if public-worthy: public log]
+```
+
+### Design Rules
+
+- [ ] Current success rate always shown
+- [ ] Each option shows success rate explicitly
+- [ ] Pill/merit cost always shown
+- [ ] Failure consequences always shown
+- [ ] Cooldown shown before selection
+- [ ] Heart demon penalty always calculated and displayed
+
+---
+
+## Alchemy Mini-Game
+
+### Design
+
+Alchemy is the most complex mini-game. It simulates the skill of controlling fire over 5 rounds.
+
+### Fire Control Rounds
+
+Each round presents 3 choices. Choices affect a hidden **Stability Meter** (0-100).
+
+| Round | Name | Choice A | Choice B | Choice C |
+|-------|------|----------|----------|----------|
+| 1 | Khởi Lô | Tiểu Hỏa (+10 stab) | Trung Hỏa (+5 stab) | Đại Hỏa (+0 stab, +10 out) |
+| 2 | Dung Dược | Giữ nhiệt (+5 stab) | Tăng nhiệt (+0 stab, +5 out) | Hạ nhiệt (+10 stab, -5 out) |
+| 3 | Lọc Tạp | Ổn định (+5 stab) | Mạnh tay (-5 stab, +10 pur) | Dùng thần thức (+0 stab, -10 Qi) |
+| 4 | Kết Đan | Nhanh (-10 stab, +15 out) | Chậm (+5 stab, -5 out) | Cực chậm (+10 stab, -10 out, +5 pur) |
+| 5 | Khai Lô | Cưỡng khai (-15 stab, +20 out) | Ổn khai (+0 stab) | Chờ thêm (+10 stab, -10 out) |
+
+### Quality Thresholds
+
+| Quality | Stability Required | Purity Required |
+|---------|-------------------|----------------|
+| **Cực Phẩm** | 90+ | 80+ |
+| **Thượng Phẩm** | 75+ | 60+ |
+| **Trung Phẩm** | 50+ | 40+ |
+| **Hạ Phẩm** | 25+ | — |
+| **Thất Bại** | <25 | — |
+
+### UI Flow
+
+```
+/alchemy
+  → [Select recipe — select menu]
+  → [Verify ingredients — confirmation]
+  → [Round 1: Ignite — 3 buttons with descriptions]
+  → [Round 2: Dissolve — 3 buttons]
+  → [Round 3: Filter — 3 buttons]
+  → [Round 4: Condense — 3 buttons]
+  → [Round 5: Open — 3 buttons]
+  → [Calculate: stability + purity + output]
+  → [Result: quality tier + item]
+  → [if Cực Phẩm: Đan Kiếp check]
+  → [if notable: public log]
+```
+
+### Design Rules
+
+- [ ] Each choice shows stability modifier explicitly
+- [ ] Each choice shows Qi cost explicitly
+- [ ] Timer of 30 seconds per round (BullMQ delayed job)
+- [ ] Previous choices shown in result embed
+- [ ] Pill poison shown as separate effect
+- [ ] Đan Kiếp dramatic reveal if triggered
+
+---
+
+## Encounter Mini-Game
+
+### Design
+
+Encounters are narrative branches. The player reads a scene and chooses an action.
+
+### Structure
+
+```
+Setup: 1-2 sentences describing the scene
+↓
+Choices: 2-4 options with implied consequences
+↓
+Resolution: Effects applied, narrative result shown
+```
+
+### Choice Design
+
+Every choice should have:
+- A narrative justification
+- A clear (if hidden) effect
+- A risk component (even "safe" choices have opportunity cost)
+
+### Examples
+
+**Herb Gatherer:**
+```
+Setup: Bạn thấy một lão nông bị thương bên đường.
+Choice A: Chữa trị → silver -50, reputation +20
+Choice B: Bỏ qua → luck +2
+Choice C: Cướp → silver +100, reputation -30, heartDemon +5
+```
+
+**Ancient Artifact:**
+```
+Setup: Trên đỉnh núi, bạn tìm thấy một tàn kiếm cắm trong đá.
+Choice A: Rút kiếm → Item gain, combat challenge
+Choice B: Nghiên cứu → cultivationPoints +200, reputation +10
+Choice C: Bỏ qua → luck +5
+```
+
+### Design Rules
+
+- [ ] Every choice has both reward AND risk (even if small)
+- [ ] Choices reflect character archetypes (heroic, pragmatic, cautious, greedy)
+- [ ] No "obviously correct" choice
+- [ ] Realm requirements shown for locked options
+- [ ] Consequence always makes narrative sense
+
+---
+
+## Combat (Auto-Resolve)
+
+### Design
+
+Combat is primarily auto-resolve for this phase. It should be:
+- Fast (3-10 turns)
+- Dramatic (combat log with personality)
+- Rewarding (loot + XP proportional to difficulty)
+
+### Combat Log Format
+
+```
+⚔️ **TRẬN CHIẾN — Yêu Thú Đồi**
+
+[Name] vs [Enemy]
+
+**Lượt 1**
+→ [Name] tấn công: [dmg] sát thương
+   [Enemy] HP: [cur]/[max]
+→ [Enemy] phản công: [dmg] sát thương
+   [Name] HP: [cur]/[max]
+
+**Lượt 2**
+... (repeat)
+
+═══════════════════════════════
+🎉 **CHIẾN THẮNG!**
+• Thu được: [silver] Bạc, [items]
+• Tu vi: +[xp]
+═══════════════════════════════
+```
+
+### Design Rules
+
+- [ ] Initiative roll shown (flavor)
+- [ ] Each turn's attack and damage shown
+- [ ] Crit/Dodge/Block indicated with emoji
+- [ ] HP bars update visually
+- [ ] Victory loot and rewards summarized
+- [ ] Defeat consequences shown (injury, death check)
+
+---
+
+## Mini-Game Design Anti-Patterns
+
+### WRONG: No Choice
+
+```
+"Click OK to receive 100 cultivation points"
+Problem: No decision = no engagement
+```
+
+### RIGHT: Meaningful Trade-off
+
+```
+"Ổn Định: Safe, slow progress"
+"Cưỡng Ép: Fast progress, risk injury"
+"Bế Quan: Very fast, but locks your actions"
+```
+
+### WRONG: No Failure State
+
+```
+"Alchemy always succeeds, just different quality"
+Problem: No tension, no stakes
+```
+
+### RIGHT: Real Stakes
+
+```
+"Alchemy can fail: lose ingredients"
+"High quality: requires skilled fire control"
+"Đan Kiếp: Cực Phẩm risks catastrophic failure"
+```
+
+### WRONG: Pure Randomness
+
+```
+"Roll 1d100, higher is better"
+Problem: No player agency
+```
+
+### RIGHT: Skill + Chance
+
+```
+"Choose fire control each round"
+"Your choices affect stability"
+"Some randomness remains (pure chance events)"
+```
+
+---
+
+## Testing Mini-Games
+
+Every mini-game needs:
+
+- [ ] Unit tests for all calculation formulas
+- [ ] Edge case: max values, zero values, boundary conditions
+- [ ] Integration test: full flow from command to result
+- [ ] Balance test: rewards match expected ranges
+- [ ] Error test: invalid inputs rejected
+- [ ] UX test: player can understand choices without reading rules

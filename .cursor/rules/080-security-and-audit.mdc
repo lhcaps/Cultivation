@@ -1,0 +1,391 @@
+# Security and Audit — Thiên Nam Engine
+
+> Rules for securing the application: authentication, authorization, rate limiting, input validation, and audit logging.
+
+---
+
+## Core Principle: Defense in Depth
+
+Security is not an afterthought. Every layer has security responsibilities.
+
+---
+
+## Secrets Management
+
+### Rules
+
+- **No secrets in code.** Ever. Use environment variables.
+- **No secrets in git.** `.env` is in `.gitignore`.
+- **`.env.example`** contains all required variables with placeholder values.
+- **Rotate secrets** if they are ever exposed.
+
+### Environment Variables
+
+| Variable | Type | Required | Notes |
+|----------|------|----------|-------|
+| `DISCORD_TOKEN` | string | Yes | Bot token — never log this |
+| `DATABASE_URL` | string | Yes | PostgreSQL connection string |
+| `REDIS_URL` | string | Yes | Redis connection string |
+| `JWT_SECRET` | string | Yes | Min 32 chars |
+| `NEXTAUTH_SECRET` | string | Yes | For admin panel auth |
+
+### Enforcement
+
+```bash
+# Check for secrets in git history
+git log --all --p -S "DISCORD_TOKEN=" -- . | head -50
+```
+
+If secrets are ever committed:
+1. Rotate them immediately
+2. Remove from git history
+3. Notify affected users
+
+---
+
+## Authentication
+
+### Discord Bot
+
+Discord bot uses bot token. No user auth needed for bot commands.
+- Token stored in `DISCORD_TOKEN` env var
+- Token never logged or exposed in error messages
+
+### Admin Panel
+
+Admin panel uses NextAuth with Discord OAuth:
+
+```typescript
+// apps/admin/lib/auth.ts
+import NextAuth from "next-auth";
+import DiscordProvider from "next-auth/providers/discord";
+
+export default NextAuth({
+  providers: [
+    DiscordProvider({
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, account }) {
+      if (account) {
+        token.accessToken = account.access_token;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Check admin role in database
+      const adminRole = await getAdminRole(token.sub!);
+      session.adminRole = adminRole;
+      return session;
+    },
+  },
+});
+```
+
+---
+
+## Authorization
+
+### Admin Role Checks
+
+Every admin API route enforces role checks:
+
+```typescript
+// Middleware
+export function requireAdminLevel(minLevel: number) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const session = await getServerSession();
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const roleLevel = getRoleLevel(session.adminRole);
+    if (roleLevel > minLevel) {
+      return res.status(403).json({ error: "Forbidden: insufficient role" });
+    }
+
+    req.admin = { id: session.user.id, role: session.adminRole };
+    next();
+  };
+}
+```
+
+### Resource Ownership
+
+Players can only access their own resources:
+
+```typescript
+// Bot command
+const discordUserId = interaction.user.id;
+const character = await api.getCharacterByDiscordId(discordUserId);
+if (!character) {
+  return interaction.editReply({ content: "Ngươi chưa có nhân vật." });
+}
+```
+
+Button/select validation:
+
+```typescript
+// Every interaction handler
+const character = await getCharacterByUserId(interaction.user.id);
+if (character.id !== targetId) {
+  return interaction.reply({
+    content: "Đây không phải nhân vật của ngươi.",
+    flags: MessageFlags.Ephemeral,
+  });
+}
+```
+
+---
+
+## Input Validation
+
+### Zod Schema Validation
+
+Every API input uses Zod:
+
+```typescript
+import { z } from "zod";
+
+const CultivateSchema = z.object({
+  characterId: z.string().cuid(),
+  mode: z.enum(["STABLE", "FORCED", "SECLUSION", "SECT"]),
+});
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  const result = CultivateSchema.safeParse(body);
+
+  if (!result.success) {
+    return Response.json(
+      { error: "Invalid input", details: result.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  // Proceed with validated input
+  const { characterId, mode } = result.data;
+  // ...
+}
+```
+
+### Discord Input Validation
+
+- Slash command options have type and constraints
+- Button payloads are validated with Zod
+- `custom_id` is parsed with explicit schema
+
+### Character Name Validation
+
+```typescript
+const nameSchema = z
+  .string()
+  .min(2, "Tên phải có ít nhất 2 ký tự")
+  .max(4, "Tên không quá 4 ký tự")
+  .regex(/^[\p{L}\s]+$/u, "Tên chỉ được chứa chữ cái")
+  .transform((v) => v.trim());
+```
+
+---
+
+## Rate Limiting
+
+### Discord Rate Limits
+
+Discord has built-in rate limits. Respect them:
+- 1 slash command acknowledgement per 3 seconds per channel
+- 200 unique button interactions per day per channel
+
+### API Rate Limits
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `/api/cultivate` | 10 | per minute |
+| `/api/breakthrough` | 5 | per hour |
+| `/api/encounter` | 10 | per hour |
+| Admin endpoints | 10 | per minute |
+
+```typescript
+// Simple in-memory rate limiter
+const rateLimiter = new Map<string, { count: number; resetAt: number }>();
+
+export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const record = rateLimiter.get(key);
+
+  if (!record || now > record.resetAt) {
+    rateLimiter.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+```
+
+### Worker Rate Limits
+
+BullMQ has built-in rate limiting per worker:
+
+```typescript
+const worker = new Worker("seclusion-complete", handler, {
+  limiter: {
+    max: 10,     // Max 10 jobs
+    duration: 1000, // Per 1 second
+  },
+});
+```
+
+---
+
+## Button Replay Prevention
+
+### Nonce in custom_id
+
+Every `custom_id` includes a nonce to prevent replay:
+
+```typescript
+function buildCustomId(action: string, subAction: string, targetId: string): string {
+  const nonce = Math.random().toString(36).substring(2, 8);
+  return `${action}:${subAction}:${targetId}:${nonce}`;
+}
+```
+
+### Idempotency Check
+
+```typescript
+// In button handler
+const processed = await cache.get(`processed:${customId}`);
+if (processed) {
+  return interaction.reply({
+    content: "Hành động này đã được xử lý.",
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+await cache.set(`processed:${customId}`, "1", { ex: 300 }); // 5 min TTL
+
+// Process the action...
+```
+
+---
+
+## SQL Injection Prevention
+
+Prisma automatically prevents SQL injection. Rules:
+- **Never use `$queryRaw` without sanitized input**
+- **Always use Prisma's query builder** for user input
+- **Use parameterized queries** if raw SQL is absolutely necessary
+
+```typescript
+// WRONG: Potential injection
+await prisma.$queryRaw`SELECT * FROM characters WHERE name = ${userInput}`;
+
+// RIGHT: Use Prisma
+await prisma.character.findMany({
+  where: { name: { contains: userInput } },
+});
+```
+
+---
+
+## XSS Prevention
+
+Discord embeds are rendered by Discord, not browser. Still:
+- **Never render user input as HTML** without sanitization
+- **Escape special characters** in public log messages
+
+```typescript
+// For public log messages
+function escapeMarkdown(input: string): string {
+  return input
+    .replace(/[*_`~]/g, "\\$&")
+    .replace(/@/g, "@")
+    .replace(/#/g, "\\#");
+}
+```
+
+---
+
+## Audit Logging Requirements
+
+### Player Actions (ActionLog)
+
+Every player action creates a log:
+
+```typescript
+await prisma.actionLog.create({
+  data: {
+    characterId: character.id,
+    action: "CULTIVATE",
+    details: {
+      mode: "STABLE",
+      points: 150,
+      heartDemon: 0,
+    },
+    publicLog: false,
+  },
+});
+```
+
+### Admin Actions (AdminAuditLog)
+
+Every admin mutation creates an audit log:
+
+```typescript
+await prisma.adminAuditLog.create({
+  data: {
+    adminId: admin.id,
+    adminRole: admin.role,
+    action: "ITEM_GIVE",
+    targetType: "character",
+    targetId: character.id,
+    targetName: character.name,
+    previousValue: null,
+    newValue: { itemId: "TRUC_MACH_DAN", quantity: 1 },
+    reason: req.body.reason,
+    evidence: req.body.evidence ?? null,
+    createdAt: new Date(),
+  },
+});
+```
+
+### What's Logged
+
+| Category | What to Log | What's NOT Logged |
+|---------|-------------|-------------------|
+| Player action | All cultivation, combat, alchemy, travel | Read-only commands |
+| Admin action | All mutations: give, remove, ban, teleport, event | Read-only views |
+| System action | Daily reset, seclusion complete, season | None |
+| Error | Failed auth, rate limit, validation | Normal 404s |
+
+### Log Retention
+
+| Log Type | Retention | Storage |
+|---------|----------|---------|
+| AdminAuditLog | Forever | Primary DB + monthly backup |
+| ActionLog | 365 days | Primary DB |
+| System logs | 90 days | Log files |
+
+---
+
+## Security Review Checklist
+
+Before each major release:
+
+- [ ] All env vars documented in `.env.example`
+- [ ] No secrets in git history
+- [ ] Admin role checks on every admin endpoint
+- [ ] User ownership checks on every player action
+- [ ] Zod validation on all API inputs
+- [ ] Rate limiting on sensitive endpoints
+- [ ] Audit logs on all mutations
+- [ ] No `$queryRaw` without review
+- [ ] Button replay protection active
+- [ ] Admin panel auth reviewed

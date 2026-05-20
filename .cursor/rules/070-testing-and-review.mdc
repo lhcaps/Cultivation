@@ -1,0 +1,329 @@
+# Testing and Review — Thiên Nam Engine
+
+> Rules for verifying code quality: type checking, linting, unit tests, integration tests, and review standards.
+
+---
+
+## Verification Layers
+
+Every code change passes through these layers before being considered done:
+
+```
+Write Code → TypeScript Check → ESLint → Unit Tests → (Integration Tests) → Done
+```
+
+No skipping. No claiming "xong" before all layers pass.
+
+---
+
+## TypeScript
+
+### Configuration
+
+- Strict mode: `"strict": true` in all `tsconfig.json`
+- `"noImplicitAny": true`
+- `"strictNullChecks": true`
+- `"noUncheckedIndexedAccess": true`
+
+### Rules
+
+- **No `any`** — Use `unknown` and narrow, or create a proper type.
+- **No type assertions (`as`)** unless absolutely necessary — document why.
+- **No `@ts-ignore` or `@ts-expect-error`** without a comment explaining why.
+- **Every function has a return type** — explicit for public API, inferred for internal.
+- **Generic constraints are explicit** — `T extends object` not just `T`.
+
+### Running
+
+```bash
+# All packages
+pnpm typecheck
+
+# Single package
+pnpm --filter @thien-nam/core typecheck
+```
+
+---
+
+## ESLint
+
+### Configuration
+
+Shared ESLint config in repo root:
+- `@typescript-eslint/recommended-type-checked`
+- `@typescript-eslint/stylistic-type-checked`
+- `no-console` (warn, allow warn/error)
+- `eqeqeq: error`
+- `prefer-const: error`
+
+### Rules
+
+- **No unused imports** — Use `eslint --fix` to auto-remove.
+- **No unused variables** — Prefix with `_` if intentionally unused.
+- **No `console.log`** in production code — Use the logger.
+- **Consistent formatting** — Prettier handles most, ESLint catches the rest.
+
+### Running
+
+```bash
+pnpm lint
+pnpm lint:fix  # Auto-fix
+```
+
+---
+
+## Unit Tests (Vitest)
+
+### Coverage Targets
+
+| Package | Minimum Coverage |
+|---------|----------------|
+| `packages/core` | **90%** for rules |
+| `packages/db` | N/A (migrations only) |
+| `apps/api` | **70%** for services |
+| `apps/worker` | **60%** for job handlers |
+
+### Test Structure
+
+```
+packages/core/src/rules/
+├── cultivation.test.ts    # Tests for cultivation rules
+├── breakthrough.test.ts   # Tests for breakthrough rules
+├── alchemy.test.ts       # Tests for alchemy rules
+└── __fixtures__/         # Shared test fixtures
+    ├── character-state.ts
+    └── realm-data.ts
+```
+
+### Writing Tests
+
+```typescript
+import { describe, it, expect, vi } from "vitest";
+import { calculateCultivationGain } from "./cultivation.js";
+import type { CharacterState, CultivationMode } from "../types/index.js";
+
+describe("calculateCultivationGain", () => {
+  // Helper: create a minimal character state
+  const makeCharacter = (overrides: Partial<CharacterState> = {}): CharacterState => ({
+    id: "test-char-1",
+    discordUserId: "user-1",
+    name: "TestChar",
+    realm: "LUYEN_THE",
+    subStage: "SƠ",
+    cultivationPoints: 0,
+    foundationQuality: 20,
+    heartDemon: 0,
+    injuryLevel: 0,
+    region: "DAI_VIET",
+    sectId: null,
+    manualId: "THANH_VAN_QUYET",
+    currentHp: 100,
+    maxHp: 100,
+    currentQi: 50,
+    maxQi: 50,
+    silver: 500,
+    spiritStones: 0,
+    merit: 0,
+    reputation: 0,
+    heavenSeals: 0,
+    luck: 10,
+    element: "THUY",
+    lastCultivationAt: null,
+    lastHeartDemonAt: null,
+    ...overrides,
+  });
+
+  describe("STABLE mode", () => {
+    it("returns base gain for standard conditions", () => {
+      const char = makeCharacter();
+      const gain = calculateCultivationGain(char, "STABLE");
+      // Luyện Thể base = 1000 × 0.8 = 800 ± variance
+      expect(gain).toBeGreaterThan(700);
+      expect(gain).toBeLessThan(900);
+    });
+
+    it("increases with higher foundation quality", () => {
+      const lowFQ = makeCharacter({ foundationQuality: 20 });
+      const highFQ = makeCharacter({ foundationQuality: 80 });
+      expect(calculateCultivationGain(highFQ, "STABLE")).toBeGreaterThan(
+        calculateCultivationGain(lowFQ, "STABLE"),
+      );
+    });
+
+    it("decreases with high heart demon", () => {
+      const normal = makeCharacter({ heartDemon: 0 });
+      const corrupted = makeCharacter({ heartDemon: 90 });
+      // High heart demon should reduce gain
+      const normalGain = calculateCultivationGain(normal, "STABLE");
+      const corruptedGain = calculateCultivationGain(corrupted, "STABLE");
+      expect(corruptedGain).toBeLessThan(normalGain);
+    });
+  });
+
+  describe("FORCED mode", () => {
+    it("returns higher gain than STABLE", () => {
+      const char = makeCharacter();
+      expect(calculateCultivationGain(char, "FORCED")).toBeGreaterThan(
+        calculateCultivationGain(char, "STABLE"),
+      );
+    });
+  });
+
+  describe("SECLUSION mode", () => {
+    it("returns the highest multiplier", () => {
+      const char = makeCharacter();
+      const seclusionGain = calculateCultivationGain(char, "SECLUSION");
+      const stableGain = calculateCultivationGain(char, "STABLE");
+      expect(seclusionGain).toBeGreaterThan(stableGain * 2); // 3.0 vs 0.8
+    });
+  });
+});
+```
+
+### Running Tests
+
+```bash
+pnpm test              # Run all tests
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Coverage report
+pnpm --filter @thien-nam/core test  # Single package
+```
+
+---
+
+## Integration Tests
+
+### When to Write Integration Tests
+
+- API service methods that call Prisma
+- Multi-step transactions
+- Job handlers with real DB calls
+- Authentication flows
+
+### Mocking
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PrismaService } from "../prisma/prisma.service.js";
+
+vi.mock("../prisma/prisma.service.js");
+
+describe("CharacterService", () => {
+  let service: CharacterService;
+  let mockPrisma: PrismaService;
+
+  beforeEach(() => {
+    mockPrisma = {
+      character: {
+        findUnique: vi.fn(),
+        update: vi.fn(),
+        findMany: vi.fn(),
+      },
+    } as unknown as PrismaService;
+
+    service = new CharacterService(mockPrisma);
+  });
+
+  it("returns character with relations", async () => {
+    const mockCharacter = {
+      id: "test-1",
+      name: "TestChar",
+      realmId: "LUYEN_THE",
+      // ...
+    };
+
+    vi.mocked(mockPrisma.character.findUnique).mockResolvedValue(mockCharacter);
+
+    const result = await service.findById("test-1");
+    expect(result).toEqual(mockCharacter);
+    expect(mockPrisma.character.findUnique).toHaveBeenCalledWith({
+      where: { id: "test-1" },
+      include: expect.any(Object),
+    });
+  });
+});
+```
+
+---
+
+## Review Checklist
+
+Before marking a task complete:
+
+### Code Quality
+- [ ] TypeScript compiles without errors
+- [ ] ESLint passes without warnings
+- [ ] Unit tests pass
+- [ ] Coverage meets target
+- [ ] No `any` types introduced
+- [ ] No `@ts-ignore` added
+- [ ] No `console.log` in source
+
+### Architecture
+- [ ] Game logic in `packages/core`
+- [ ] No Discord imports in `packages/core`
+- [ ] API calls Prisma through services
+- [ ] Transactions for multi-step mutations
+- [ ] Audit logs created for player and admin actions
+
+### Testing
+- [ ] Core rules have unit tests
+- [ ] Edge cases covered (zero, max, boundary)
+- [ ] Error cases tested
+- [ ] Integration tests for services (if applicable)
+
+### Documentation
+- [ ] New files documented in docstrings
+- [ ] `kb/` updated if system behavior changed
+- [ ] `docs/` updated if game rules changed
+- [ ] `README.md` updated if build process changed
+
+---
+
+## CI/CD
+
+All PRs must pass before merge:
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+```
+
+---
+
+## Test-Driven Development (Optional but Recommended)
+
+For complex game mechanics, follow TDD:
+
+```
+1. Write the test first (it will fail)
+2. Implement the minimum code to pass
+3. Refactor
+4. Repeat
+```
+
+This is especially valuable for:
+- New cultivation modes
+- Breakthrough tribulation mechanics
+- Alchemy quality calculations
+- Combat damage formulas
+- Economy balancing formulas

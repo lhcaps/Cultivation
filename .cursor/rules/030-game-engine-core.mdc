@@ -1,0 +1,285 @@
+# Game Engine Core — Thiên Nam Engine
+
+> Rules for `packages/core`: the pure TypeScript game engine with zero external dependencies.
+
+---
+
+## Core Philosophy
+
+`packages/core` is the brain of Thiên Nam Engine. It contains every game rule, every formula, every balance constant. It knows nothing about Discord, databases, or networks. It only receives input and returns results.
+
+```
+Input (character state + action) → Engine → Result (pure data)
+```
+
+---
+
+## What Goes in `packages/core`
+
+### 1. Constants (`src/constants/`)
+
+Every magic number in the game lives here.
+
+| File | Contents |
+|------|----------|
+| `cultivation.ts` | EXP per session, heart demon rates, mode multipliers |
+| `realms.ts` | All 10 realms, point requirements, breakthrough rates |
+| `combat.ts` | HP/Qi scaling, damage formulas, crit rates |
+| `economy.ts` | Currency values, generation rates, sinks |
+| `time.ts` | Reset times, season duration, cooldown intervals |
+
+**Rules:**
+- All constants are `as const` objects (immutable).
+- Constants have descriptive names: `HEART_DEMON_CRITICAL = 80` not `HD_CRIT = 80`.
+- All numeric constants have units in the name: `_HOURS`, `_DAYS`, `_RATE`, `_MAX`.
+
+### 2. Types (`src/types/`)
+
+Domain types and Zod validation schemas.
+
+**Rules:**
+- Every type has a Zod schema for runtime validation.
+- Types are plain objects (POJOs), not class instances.
+- Types are serializable (JSON-safe).
+- Use `interface` for data shapes, `type` for unions/intersections.
+
+### 3. Rules (`src/rules/`)
+
+Pure functions implementing game logic.
+
+**Rules:**
+- Zero side effects: no DB, no network, no logging.
+- Deterministic (accept RNG as parameter for testable randomness).
+- Return serializable result objects.
+- Throw typed errors: `class CultivationError extends Error`.
+
+### 4. Calculators (`src/calculators/`)
+
+Re-exports from rules for ergonomic access. No new logic here.
+
+---
+
+## What Does NOT Go in `packages/core`
+
+| Prohibited | Alternative |
+|-----------|------------|
+| `import "discord.js"` | N/A |
+| `import "@prisma/client"` | Call from `apps/api` |
+| `import "@nestjs/common"` | N/A |
+| `import "fs"`, `path`, `process` | Configuration via parameters |
+| `console.log` | Return values only |
+| `Date.now()` | Accept timestamp as parameter |
+| `Math.random()` | Accept `rng: () => number` parameter |
+
+---
+
+## Function Design
+
+### Input: Plain Object
+
+```typescript
+interface CultivationInput {
+  characterId: string;
+  mode: CultivationMode;
+  sectId: string | null;
+}
+
+// Usage
+const result = resolveCultivation(characterState, "STABLE", null);
+```
+
+### Output: Serialized Result
+
+```typescript
+interface CultivationResult {
+  pointsGained: number;
+  heartDemonGained: number;
+  injury: InjuryLevel;
+  spiritStonesGained: number;
+  stability: number;
+  shouldPublicLog: boolean;
+  publicLogMessage: string | null;
+}
+```
+
+### Error Handling
+
+```typescript
+class CultivationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "COOLDOWN_ACTIVE" | "INVALID_MODE" | "INJURY_BLOCKED" | "HEART_DEMON_CRITICAL",
+  ) {
+    super(message);
+    this.name = "CultivationError";
+  }
+}
+
+// Usage
+try {
+  const result = resolveCultivation(state, mode);
+} catch (error) {
+  if (error instanceof CultivationError) {
+    if (error.code === "COOLDOWN_ACTIVE") { /* ... */ }
+  }
+}
+```
+
+---
+
+## Testing Requirements
+
+Every rule function MUST have:
+
+1. **Happy path test** — Normal usage works correctly.
+2. **Edge case tests** — Zero values, max values, boundary conditions.
+3. **Error case tests** — Invalid inputs throw appropriate errors.
+4. **Formula verification** — Output matches expected mathematical results.
+
+### Example Test Structure
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { calculateCultivationGain } from "./cultivation.js";
+
+describe("calculateCultivationGain", () => {
+  it("returns base gain for stable cultivation", () => {
+    const gain = calculateCultivationGain(
+      "LUYEN_THE",
+      "STABLE",
+      20,    // foundation
+      "DAI_VIET",  // region
+      0,     // heartDemon
+      true,  // hasManual
+      false, // inSect
+    );
+    // Luyện Thể base = 1000 × 0.8 × 1.0 × 1.0 × 1.0 × 1.0 = 800
+    expect(gain).toBeGreaterThan(700);
+    expect(gain).toBeLessThan(900);
+  });
+
+  it("increases gain with higher foundation quality", () => {
+    const lowFQ = calculateCultivationGain("LUYEN_THE", "STABLE", 20, "DAI_VIET", 0, true, false);
+    const highFQ = calculateCultivationGain("LUYEN_THE", "STABLE", 80, "DAI_VIET", 0, true, false);
+    expect(highFQ).toBeGreaterThan(lowFQ);
+  });
+
+  it("throws error for invalid mode", () => {
+    expect(() =>
+      calculateCultivationGain("LUYEN_THE", "INVALID" as never, 20, "DAI_VIET", 0, true, false)
+    ).toThrow();
+  });
+});
+```
+
+### RNG Injection
+
+For testable randomness, accept an optional RNG:
+
+```typescript
+export function resolveBreakthrough(
+  character: CharacterState,
+  mode: BreakthroughMode,
+  options: {
+    rng?: () => number; // Default: Math.random
+    currentTime?: number; // Default: Date.now()
+  } = {},
+): BreakthroughResult {
+  const rng = options.rng ?? Math.random;
+  const roll = rng();
+
+  // Use roll for probability calculation
+  // ...
+}
+```
+
+In tests, pass a deterministic RNG:
+
+```typescript
+let callCount = 0;
+const deterministicRng = () => {
+  const values = [0.95, 0.30, 0.05]; // success, minor failure, severe
+  return values[callCount++ % values.length]!;
+};
+
+const result = resolveBreakthrough(state, "STABLE", { rng: deterministicRng });
+```
+
+---
+
+## File Organization
+
+```
+packages/core/src/
+├── index.ts                    # Public API re-exports
+├── constants/
+│   ├── index.ts
+│   ├── cultivation.ts           # Cultivation constants
+│   ├── realms.ts              # Realm definitions + helpers
+│   ├── combat.ts               # Combat constants
+│   ├── economy.ts              # Economy constants
+│   └── time.ts                # Time constants + MS conversions
+├── types/
+│   ├── index.ts               # All types re-exported
+│   └── index.ts               # Zod schemas + TS interfaces
+├── rules/
+│   ├── index.ts               # All rules re-exported
+│   ├── cultivation.ts         # Cultivation gain, modes
+│   ├── breakthrough.ts        # Breakthrough calculation
+│   ├── alchemy.ts             # Alchemy fire control
+│   ├── encounter.ts           # Encounter rolling
+│   ├── sect.ts                # Sect membership, benefits
+│   └── combat.ts              # Auto-resolve combat
+├── calculators/
+│   └── index.ts               # Re-exports from rules
+└── utils/
+    ├── errors.ts              # Typed error classes
+    └── random.ts              # RNG helpers (if needed)
+```
+
+---
+
+## Adding New Rules
+
+When adding a new game system:
+
+1. **Create constants** in `src/constants/` if the system has tuning values.
+2. **Define types** in `src/types/` with Zod schemas.
+3. **Implement pure functions** in `src/rules/` following the signature:
+
+   ```typescript
+   // Input: plain object with all needed data
+   // Output: serialized result object
+   // Throws: typed errors
+   ```
+
+4. **Write tests** covering all code paths.
+5. **Re-export** from `src/rules/index.ts` and `src/index.ts`.
+6. **Update** `kb/engineering/architecture.md` if the system is a new layer.
+
+---
+
+## Performance Considerations
+
+- `packages/core` should have **no runtime dependencies**. The entire package compiles to vanilla JS.
+- Avoid creating objects in hot paths — pre-allocate where possible.
+- `Map` and `Set` for lookups are faster than `Object.keys()` iteration.
+- All functions are tree-shakeable due to ESM.
+- Bundle size target: **< 50KB gzipped** for the entire core package.
+
+---
+
+## Verification Checklist
+
+Before declaring a core function complete:
+
+- [ ] Pure function — no side effects
+- [ ] Typed inputs and outputs
+- [ ] Zod schema for validation
+- [ ] Unit tests with >80% coverage
+- [ ] Happy path test
+- [ ] Edge case tests (zero, max, boundary)
+- [ ] Error case tests
+- [ ] Deterministic RNG (for testable randomness)
+- [ ] Re-exported from index.ts
+- [ ] Documented with JSDoc

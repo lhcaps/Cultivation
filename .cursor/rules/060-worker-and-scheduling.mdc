@@ -1,0 +1,343 @@
+# Worker and Scheduling — Thiên Nam Engine
+
+> Rules for BullMQ workers: background job processing, scheduling, and idempotency.
+
+---
+
+## Core Principle: Jobs Must Be Idempotent
+
+A job can be safely retried. If a job fails mid-execution, running it again should produce the same result without side effects.
+
+---
+
+## Job Types
+
+### Scheduled Jobs (BullMQ Recurring)
+
+| Job Name | Schedule | Purpose |
+|----------|----------|---------|
+| `daily-reset` | Daily at 00:00 UTC | Daily rewards, cooldown resets, heartbeat |
+| `heart-demon-decay` | Daily at 00:00 UTC | -1 heart demon per active character |
+| `injury-expiry` | Every 5 minutes | Check and clear expired injuries |
+| `cooldown-expiry` | Every 5 minutes | Check and clear expired cooldowns |
+| `season-check` | Every hour | Check season end conditions |
+| `sect-salary` | Weekly (Sunday 00:00 UTC) | Distribute sect salaries |
+| `world-event-expiry` | Every 15 minutes | End expired world events |
+| `leaderboard-refresh` | Every hour | Recalculate all leaderboards |
+
+### Delayed Jobs (One-time, BullMQ Delayed)
+
+| Job Name | Trigger | Purpose |
+|----------|---------|---------|
+| `seclusion-complete` | `/cultivate` with SECLUSION mode | Apply seclusion rewards after 8 hours |
+| `alchemy-complete` | `/alchemy` | Apply alchemy result |
+| `encounter-timeout` | `/encounter` | Clear stuck encounter state |
+| `mission-expiry` | `/mission` | Handle expired missions |
+| `world-boss-spawn` | Admin spawn command | Schedule boss spawn |
+| `world-boss-despawn` | Boss spawn or admin command | Remove boss after duration |
+| `season-reward` | Season end | Distribute season rewards |
+
+### Event-Driven Jobs (BullMQ Queue)
+
+| Job Name | Trigger | Purpose |
+|----------|---------|---------|
+| `process-public-log` | Any action with `publicLog: true` | Send Discord public log message |
+| `process-admin-action` | Admin panel mutation | Send admin action log |
+| `send-player-notification` | Various triggers | DM player about important events |
+
+---
+
+## Worker Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  BullMQ Queue                                        │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
+│  │ daily-reset │ │seclusion-com│ │world-event- │    │
+│  │             │ │plete        │ │expiry       │    │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘    │
+│         │                │                │           │
+└─────────┼────────────────┼────────────────┼───────────┘
+          ▼                ▼                ▼
+┌──────────────────────────────────────────────────────┐
+│  Worker Process                                      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │ dailyWorker │ │seclusionWork│ │eventWorker  │  │
+│  │ concurrency:1│ │ concurrency:5│ │concurrency:3│  │
+│  └─────────────┘ └─────────────┘ └─────────────┘  │
+└──────────────────────────────────────────────────────┘
+          │                │                │
+          ▼                ▼                ▼
+┌──────────────────────────────────────────────────────┐
+│  Redis                                               │
+│  Job queue, job state, retry counts, delayed jobs  │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## Idempotency Patterns
+
+### Pattern 1: Check Before Write
+
+```typescript
+// WRONG: Assume job hasn't run
+await tx.character.update({
+  where: { id: characterId },
+  data: { dailyCultivationClaimed: true },
+});
+
+// RIGHT: Check state before writing
+const updated = await tx.character.updateMany({
+  where: {
+    id: characterId,
+    lastDailyClaimedAt: { lt: todayStart }, // Only update if not claimed today
+  },
+  data: { lastDailyClaimedAt: new Date() },
+});
+if (updated.count === 0) {
+  // Already claimed today — job was re-triggered, skip
+  return { skipped: true, reason: "Already claimed today" };
+}
+```
+
+### Pattern 2: Use Job ID for Deduplication
+
+```typescript
+// When adding a delayed job, use a deterministic job key
+const jobKey = `seclusion:${characterId}:${Date.now()}`;
+await seclusionQueue.add(
+  "seclusion-complete",
+  { characterId, expectedCompletionAt },
+  {
+    jobId: jobKey, // BullMQ uses jobId for deduplication
+    delay: durationMs,
+    removeOnComplete: 1000,
+    removeOnFail: 5000,
+  }
+);
+```
+
+### Pattern 3: Upsert with Condition
+
+```typescript
+// For leaderboard refresh
+await prisma.leaderboardEntry.upsert({
+  where: {
+    characterId_season: {
+      characterId,
+      season,
+    },
+  },
+  update: {
+    cultivationPoints: newTotal,
+    updatedAt: new Date(),
+  },
+  create: {
+    characterId,
+    season,
+    cultivationPoints: newTotal,
+  },
+});
+```
+
+---
+
+## Job Structure
+
+### Job Data
+
+```typescript
+interface SeclusionCompleteJob {
+  characterId: string;
+  startedAt: Date;
+  expectedCompletionAt: Date;
+  mode: "SECLUSION";
+  basePoints: number;
+  multiplier: number;
+}
+```
+
+### Job Handler
+
+```typescript
+import { type Job } from "bullmq";
+
+seclusionWorker.process(
+  async (job: Job<SeclusionCompleteJob>) => {
+    const { characterId, startedAt } = job.data;
+
+    // Verify seclusion is actually complete
+    const character = await prisma.character.findUnique({
+      where: { id: characterId },
+    });
+
+    if (!character) {
+      throw new Error(`Character ${characterId} not found`);
+    }
+
+    // Check if already processed (idempotency)
+    const existingSession = await prisma.cultivationSession.findFirst({
+      where: {
+        characterId,
+        mode: "SECLUSION",
+        createdAt: { gte: startedAt },
+      },
+    });
+
+    if (existingSession) {
+      return { skipped: true, reason: "Already processed" };
+    }
+
+    // Process seclusion completion
+    await prisma.$transaction(async (tx) => {
+      await tx.character.update({
+        where: { id: characterId },
+        data: { cultivationPoints: { increment: job.data.basePoints * job.data.multiplier } },
+      });
+      await tx.cultivationSession.create({
+        data: {
+          characterId,
+          mode: "SECLUSION",
+          pointsGained: job.data.basePoints * job.data.multiplier,
+          createdAt: new Date(),
+        },
+      });
+    });
+
+    return { success: true, pointsAwarded: job.data.basePoints * job.data.multiplier };
+  }
+);
+```
+
+---
+
+## Error Handling and Retry
+
+### Retry Configuration
+
+```typescript
+const worker = new Worker("seclusion-complete", handler, {
+  connection: redisConnection,
+  concurrency: 5,
+  limiter: {
+    max: 10,
+    duration: 1000,
+  },
+  attempts: 3,
+  backoff: {
+    type: "exponential",
+    delay: 5000, // 5s, 10s, 20s
+  },
+  removeOnComplete: { count: 1000 },
+  removeOnFail: { count: 5000 },
+});
+```
+
+### Error Classification
+
+| Error Type | Retry? | Action |
+|-----------|--------|--------|
+| Transient (network, Redis disconnect) | Yes (auto) | Log and retry |
+| Data not found | No | Log as failed, alert |
+| Validation error | No | Log as failed, alert |
+| Partial state | Depends | Check idempotency, retry |
+
+### Dead Letter Queue
+
+Jobs that fail all retries go to the failed queue. Monitor this:
+
+```typescript
+failedWorker.process(async (job: Job) => {
+  // Alert admins
+  await sendAdminAlert(`Job ${job.name} (ID: ${job.id}) failed after ${job.attemptsMade} attempts`);
+  // Log for manual review
+  await prisma.failedJobLog.create({
+    data: {
+      jobName: job.name,
+      jobData: job.data,
+      attempts: job.attemptsMade,
+      lastError: job.failedReason,
+    },
+  });
+});
+```
+
+---
+
+## Scheduling with Cron
+
+### Daily Reset (00:00 UTC)
+
+```typescript
+import { CronRepeatOption } from "bullmq";
+
+dailyQueue.add(
+  "daily-reset",
+  { resetType: "daily" },
+  {
+    repeat: {
+      pattern: "0 0 * * *", // Every day at midnight UTC
+      tz: "UTC",
+    } as CronRepeatOption,
+  }
+);
+```
+
+### Weekly Sect Salary (Sunday 00:00 UTC)
+
+```typescript
+sectSalaryQueue.add(
+  "sect-salary",
+  { salaryType: "weekly" },
+  {
+    repeat: {
+      pattern: "0 0 * * 0", // Every Sunday at midnight UTC
+      tz: "UTC",
+    } as CronRepeatOption,
+  }
+);
+```
+
+---
+
+## Monitoring
+
+### Metrics to Track
+
+| Metric | Alert Threshold |
+|--------|----------------|
+| Queue depth | > 1000 jobs pending |
+| Job failure rate | > 5% in 1 hour |
+| Avg job duration | > 30 seconds |
+| Redis memory | > 80% of max |
+| Worker process count | 0 (crash!) |
+
+### Health Checks
+
+```typescript
+// Worker health check endpoint
+app.get("/worker/health", async (req, res) => {
+  const workerCounts = await dailyQueue.getJobCounts();
+  const isHealthy = workerCounts.active + workerCounts.waiting < 1000;
+
+  res.json({
+    status: isHealthy ? "healthy" : "degraded",
+    queueDepth: workerCounts.waiting,
+    activeJobs: workerCounts.active,
+    failedJobs: workerCounts.failed,
+    timestamp: new Date().toISOString(),
+  });
+});
+```
+
+---
+
+## Adding a New Job
+
+1. Define job data interface in `apps/worker/src/jobs/types.ts`
+2. Add to queue definition in `apps/worker/src/queues/`
+3. Implement handler with idempotency checks
+4. Add retry configuration
+5. Write unit tests
+6. Document in `kb/engineering/worker-jobs.md`

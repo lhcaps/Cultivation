@@ -1,0 +1,250 @@
+# Architecture Boundaries — Thiên Nam Engine
+
+> Defines the explicit boundaries between system layers. Crossing these boundaries is a bug.
+
+---
+
+## The Rule of Layers
+
+```
+┌─────────────────────────────────────────────────────┐
+│  apps/bot                                          │
+│  Discord.js + @sapphire/framework                   │
+│  ONLY: receives interaction → calls engine → renders │
+│  NEVER: contains game rules, balance, or logic      │
+└─────────────────────────────────────────────────────┘
+                          ↓ calls
+┌─────────────────────────────────────────────────────┐
+│  packages/core                                      │
+│  Pure TypeScript, zero external dependencies        │
+│  ONLY: game rules, formulas, constants, types      │
+│  NEVER: discord.js, NestJS, Prisma, fs, network     │
+└─────────────────────────────────────────────────────┘
+                          ↓ used by
+┌─────────────────────────────────────────────────────┐
+│  apps/api  +  apps/bot  +  apps/worker             │
+│  ONLY: imports core, calls rules, updates DB         │
+│  NEVER: re-implements game logic                     │
+└─────────────────────────────────────────────────────┘
+                          ↓ persists to
+┌─────────────────────────────────────────────────────┐
+│  packages/db                                        │
+│  Prisma schema + migrations + seeds                  │
+│  ONLY: data schema, queries, transactions          │
+│  NEVER: game rules, business logic                  │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Layer Descriptions
+
+### `packages/core` — The Game Engine
+
+**Purpose:** Source of truth for all game rules and balance.
+
+**What it MAY contain:**
+- Pure functions: `calculateCultivationGain()`, `resolveBreakthrough()`, `resolveCombat()`
+- Constants: `CULTIVATION_CONSTANTS`, `REALMS`, `COMBAT_CONSTANTS`
+- Types: Zod schemas, TypeScript interfaces
+- Serializable result objects: `CultivationResult`, `BreakthroughResult`
+
+**What it MAY NOT contain:**
+- `import "discord.js"` or any Discord library
+- `import "@prisma/client"`
+- `import "@nestjs/common"`
+- File system operations (`fs`, `path`)
+- Network requests (`fetch`, `axios`)
+- Date/time operations that depend on system clock (use injected time)
+- Randomness that cannot be seeded (accept RNG as parameter)
+
+**How it is used:**
+- `apps/api` calls core rules in services
+- `apps/bot` never calls core directly in commands — goes through API
+- `apps/worker` calls core rules in job processors
+- Tests import core directly
+
+### `apps/bot` — Discord Client Adapter
+
+**Purpose:** Convert Discord interactions into game operations, render UI.
+
+**What it MAY do:**
+- Receive slash commands, button clicks, select menus, modals
+- Call API services for game operations
+- Render Discord embeds, action rows, modals
+- Send ephemeral responses for personal UI
+- Send public messages for notable world events
+- Validate `interaction.user.id` matches character owner
+- Parse `custom_id` with pattern: `{domain}:{action}:{entityId}:{nonce}`
+
+**What it MAY NOT do:**
+- Implement game balance formulas
+- Query Prisma directly (go through API)
+- Hardcode realm names, item names, sect names
+- Make game decisions — only forward to API/engine
+
+### `apps/api` — Game API (NestJS)
+
+**Purpose:** Orchestrate game operations, own database transactions.
+
+**What it MAY do:**
+- Receive HTTP requests from bot, admin panel
+- Call `packages/core` rules
+- Execute Prisma transactions
+- Create `ActionLog` and `AdminAuditLog` entries
+- Validate business rules (cooldowns, prerequisites)
+- Expose Swagger-documented REST endpoints
+
+**What it MAY NOT do:**
+- Re-implement game formulas that exist in `packages/core`
+- Return Discord-specific objects to the bot
+- Have business logic that bypasses `packages/core`
+
+### `apps/worker` — Background Job Processor
+
+**Purpose:** Handle delayed, scheduled, and triggered background tasks.
+
+**Jobs it handles:**
+- Daily reset (midnight UTC)
+- Seclusion completion (delayed cultivation)
+- Sect salary distribution (weekly)
+- World event expiry
+- Season reward calculation
+- Heart demon daily decay
+- Injury expiration
+
+**What it MAY do:**
+- Schedule BullMQ jobs with delayed execution
+- Call `packages/core` rules for job resolution
+- Update database via Prisma
+- Emit logs for job lifecycle
+
+**What it MAY NOT do:**
+- Respond to user interactions
+- Maintain persistent WebSocket connections
+- Handle real-time combat
+
+### `apps/admin` — Admin Panel (Next.js)
+
+**Purpose:** "Thiên Đạo" control surface for world management.
+
+**What it MAY do:**
+- Create/edit world events
+- Inspect player characters
+- Grant items and currency
+- Spawn world bosses
+- View audit logs
+- Preview balance changes
+- Announce to server
+
+**What it MAY NOT do:**
+- Bypass `AdminAuditLog` — every mutation logs itself
+- Modify game rules — only modify data
+- Access player passwords or Discord tokens
+
+### `packages/db` — Database Layer
+
+**Purpose:** Data persistence, schema management, seed data.
+
+**What it MAY contain:**
+- Prisma schema (`schema.prisma`)
+- Migration files
+- Seed scripts (`seed.ts`)
+- Prisma client singleton
+- Database connection configuration
+
+**What it MAY NOT contain:**
+- Business logic
+- Game calculations
+- API route handlers
+
+---
+
+## Import Rules
+
+```
+packages/core   →  may NOT import from → apps/*, packages/db, packages/ui-shared
+apps/api       →  may import from      → packages/core, packages/db
+apps/bot       →  may import from      → packages/core, apps/api (via HTTP)
+apps/worker    →  may import from      → packages/core, packages/db
+apps/admin     →  may import from      → packages/ui-shared, apps/api (via HTTP)
+packages/db    →  may NOT import from  → apps/*, packages/core
+packages/ui-shared →  may NOT import from → apps/*, packages/core, packages/db
+```
+
+**Enforcement:** ESLint rules enforce these boundaries.
+
+---
+
+## Cross-Cutting Concerns
+
+### Serialization
+
+- `packages/core` functions accept plain objects (POJOs), not ORM models.
+- `apps/api` converts Prisma results to plain objects before calling core.
+- `apps/api` converts core results back to Prisma updates.
+
+### Error Handling
+
+- `packages/core` throws typed errors: `class CultivationError extends Error`
+- `apps/api` catches errors, returns HTTP 400 with structured message
+- `apps/bot` catches errors, replies with user-friendly ephemeral message
+- `apps/worker` catches errors, marks job as failed with retry
+
+### Logging
+
+- `apps/bot`: Discord interaction lifecycle, public log events
+- `apps/api`: HTTP requests, database mutations
+- `apps/worker`: Job lifecycle, scheduled task results
+- `packages/core`: No logging (pure functions)
+
+---
+
+## Boundary Violation Examples
+
+### WRONG (violation)
+
+```typescript
+// apps/bot/src/commands/cultivate.ts
+const gain = character.cultivationPoints + baseGain * 1.5;
+// Game formula is in a Discord command!
+```
+
+### RIGHT (correct)
+
+```typescript
+// apps/bot/src/commands/cultivate.ts
+const result = await cultivationApi.cultivate(characterId, "STABLE");
+// Bot only orchestrates. Rules live in core.
+```
+
+### WRONG (violation)
+
+```typescript
+// packages/core/src/rules/cultivation.ts
+import { PrismaClient } from "@prisma/client";
+// Database access in the game engine!
+```
+
+### RIGHT (correct)
+
+```typescript
+// packages/core/src/rules/cultivation.ts
+export function resolveCultivation(
+  character: CharacterState,
+  mode: CultivationMode,
+): CultivationResult {
+  // Pure calculation. No side effects. No DB.
+}
+```
+
+---
+
+## Adding New Layers
+
+If a new app is added (e.g., `apps/web-client`), it must:
+
+1. Declare which layers it may import from
+2. Follow the same import restrictions above
+3. Be documented in `kb/engineering/architecture.md`
+4. Have an ADR in `kb/adr/` explaining its purpose

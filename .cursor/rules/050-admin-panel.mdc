@@ -1,0 +1,329 @@
+# Admin Panel — Thiên Nam Engine
+
+> Rules for the "Thiên Đạo" control surface: Next.js admin dashboard for world management.
+
+---
+
+## Core Principle: Power with Accountability
+
+The admin panel is where Thiên Đạo (admins) manage the world. Every action they take must be logged, auditable, and reversible where possible. The panel itself is a thin UI over the same API that the bot uses — with additional admin-only endpoints.
+
+---
+
+## Admin Roles
+
+| Role | Level | Capabilities |
+|------|-------|-------------|
+| **Thiên Đế** | 1 | All powers, assign other admins |
+| **Nam Tào** | 2 | All game management, no admin assignment |
+| **Bắc Đẩu** | 3 | Player management, events, no economy changes |
+| **Thái Thượng** | 4 | Read-only, player support requests |
+| **Địa Quan** | 5 | Probationary, ticket management only |
+
+### Permission Matrix
+
+| Action | Thiên Đế | Nam Tào | Bắc Đẩu | Thái Thượng | Địa Quan |
+|--------|---------|---------|---------|-------------|---------|
+| Create event | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Spawn boss | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Give item | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Adjust economy | ✅ | ✅ | ❌ | ❌ | ❌ |
+| View audit logs | ✅ | ✅ | ✅ | Own only | ❌ |
+| Manage admins | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Player support | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## Page Structure
+
+### Dashboard (`/dashboard`)
+
+- Active players (24h, 7d, 30d)
+- Economy health indicators
+- Active events summary
+- Recent admin actions
+- Server status (bot online/offline)
+
+### Players (`/players`)
+
+- Search by name or Discord ID
+- View character details
+- Search and sort leaderboards
+- Action: mute, ban, teleport
+
+### Characters (`/characters/[id]`)
+
+- Full character stats
+- Inventory
+- Action history
+- Cooldowns
+- Action: reset, delete, adjust stats
+
+### Sects (`/sects`)
+
+- Sect list with treasury, member count, rank
+- View sect members and ranks
+- Action: dissolve, promote, set leader
+
+### Regions (`/regions`)
+
+- Region status (open/closed/maintenance)
+- Active encounters
+- Boss spawns
+- Action: lock region, unlock region
+
+### Items (`/items`)
+
+- Item database browser
+- Add/edit items (via seed update)
+- View item effects and rarity
+
+### Events (`/events`)
+
+- List active and past events
+- Create new event (draft → preview → publish)
+- Edit active event
+- End event early
+- **Rollback event** if needed
+
+### Logs (`/logs`)
+
+- Action log browser (filterable by type, character, date)
+- Public log channel feed
+
+### Audit (`/audit`)
+
+- Admin audit log browser
+- Filter by admin, action type, date, target
+- Export to CSV
+
+### Economy (`/economy`)
+
+- Currency circulation report
+- Shop price trends
+- Economy adjustment tools (with preview)
+- **Approval required for changes > 5%**
+
+---
+
+## Form Design Rules
+
+### Every Mutation Form Requires
+
+1. **Reason field** — Required text input explaining why
+2. **Evidence field** — Optional URL to screenshot/log
+3. **Preview** — Show what will change before confirming
+4. **Confirmation dialog** — "Are you sure?" with summary
+5. **Audit auto-log** — The action itself logs to `AdminAuditLog`
+
+### Form Validation
+
+```typescript
+const giveItemSchema = z.object({
+  characterId: z.string().cuid(),
+  itemId: z.string().min(1),
+  quantity: z.number().int().min(1).max(1000),
+  reason: z.string().min(10, "Lý do phải có ít nhất 10 ký tự"),
+  evidence: z.string().url().optional(),
+});
+```
+
+### Preview Before Execute
+
+For economy-sensitive changes:
+
+1. Show current value
+2. Show proposed value
+3. Show affected players count
+4. Show estimated impact
+5. Require secondary confirmation for large changes
+
+---
+
+## Event Creation Flow
+
+The most complex admin flow. Must be a multi-step wizard:
+
+```
+Step 1: Basic Info
+  ├── Name (text)
+  ├── Type (select: WORLD_BOSS, SEASON, MINIGAME, LORE)
+  ├── Start time (datetime)
+  └── End time (datetime)
+
+Step 2: Effects (repeatable)
+  ├── Effect type (select: BUFF, DEBUFF, SPAWN, UNLOCK, CLOSE)
+  ├── Target (select: PLAYER, SECT, REGION, ALL)
+  └── Effect parameters (dynamic based on type)
+
+Step 3: Rewards (repeatable)
+  ├── Item or currency
+  ├── Amount
+  └── Probabilistic? (yes/no)
+
+Step 4: Requirements
+  ├── Minimum realm
+  ├── Minimum sect
+  └── Region requirement
+
+Step 5: Preview
+  ├── Full event JSON
+  ├── Mock Discord embed preview
+  └── Affected player estimate
+
+Step 6: Publish
+  ├── Confirm
+  └── → Creates WorldEvent in DB
+  └── → Schedules BullMQ job for start/end
+```
+
+---
+
+## Player Management Actions
+
+### Ban/Permanent Ban
+
+```
+1. Select player
+2. Choose reason (predefined + custom)
+3. Add evidence URL
+4. Confirm (requires level 2+)
+5. → Creates AdminAuditLog
+6. → Updates User record
+7. → Notifies player via DM if possible
+8. → Posts in admin channel
+```
+
+### Character Reset
+
+```
+1. Select player + character
+2. Player must have submitted in-game request
+3. Show what will be reset (full list)
+4. Confirm with typed character name
+5. → Creates AdminAuditLog with full diff
+6. → Transaction: reset all stats, remove items/sect/manual
+7. → Keep: username, Discord link
+```
+
+### Teleport
+
+```
+1. Select player
+2. Select target region
+3. Optional: reason
+4. → Creates AdminAuditLog
+5. → Updates Character.regionId
+```
+
+---
+
+## Read-Only Pages
+
+### Action Logs
+
+- Filterable by: action type, character, date range, public/private
+- Exportable to CSV
+- Shows full details JSON on click
+
+### Audit Logs
+
+- Filterable by: admin, action type, target, date range
+- Shows: admin name, action, target, previous/new values, reason, evidence
+- **Level 1-2 can see all logs**
+- **Level 3 can see last 90 days**
+- **Level 4 can only see their own actions**
+
+---
+
+## UI/UX Standards
+
+### Theme
+
+- Dark mode default (matches Discord aesthetic)
+- Amber/gold accent color (#f59e0b) for primary actions
+- Red (#ef4444) for destructive actions
+- Consistent spacing: 4px base unit
+
+### Layout
+
+- Sidebar navigation (collapsible)
+- Header with admin role badge
+- Breadcrumb for nested pages
+- Toast notifications for action results
+
+### Tables
+
+- Sortable columns
+- Search/filter bar
+- Pagination (max 50 rows per page)
+- Row click → detail view
+- Bulk select for batch operations
+
+### Forms
+
+- Vertical layout with clear labels
+- Inline validation
+- Loading states on submit
+- Success/error toasts
+- Form persistence (draft saves)
+
+---
+
+## API Endpoints (Admin)
+
+All admin endpoints require:
+
+1. `Authorization: Bearer <admin_token>` header
+2. Level check in middleware
+3. Request body validation with Zod
+4. Response schema documented with Zod + OpenAPI
+
+### Endpoint Pattern
+
+```typescript
+// POST /api/admin/players/:id/teleport
+// Level required: 4+
+// Body: { regionId: string; reason: string }
+router.post(
+  "/players/:id/teleport",
+  requireAdminLevel(4),
+  async (req, res) => {
+    const { id } = req.params;
+    const { regionId, reason } = teleportSchema.parse(req.body);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.character.update({
+        where: { id },
+        data: { regionId },
+      });
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: req.admin.id,
+          adminRole: req.admin.role,
+          action: "PLAYER_TELEPORT",
+          targetType: "character",
+          targetId: id,
+          newValue: { regionId },
+          reason,
+        },
+      });
+    });
+
+    res.json({ success: true });
+  }
+);
+```
+
+---
+
+## Security Rules
+
+| Rule | Enforcement |
+|------|------------|
+| No hardcoded admin tokens | Environment variable only |
+| Role checked on every request | Middleware enforcement |
+| Sensitive logs never exposed to low-level admins | API-level filtering |
+| Rate limiting on admin endpoints | 10 requests/minute per admin |
+| Two-factor confirmation for economy changes | UI enforcement |
+| Audit log is append-only | No DELETE on AdminAuditLog |

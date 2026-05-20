@@ -1,0 +1,262 @@
+# Documentation and Knowledge Base — Thiên Nam Engine
+
+> Rules for maintaining documentation, knowledge base, and architecture decision records.
+
+---
+
+## Core Principle: Documentation Is Part of the Code
+
+Documentation that isn't maintained is worse than no documentation — it lies. Every doc must be accurate, current, and discoverable.
+
+---
+
+## Documentation Hierarchy
+
+```
+docs/           ← Canonical game rules (World Bible, Rules, Balancing)
+kb/             ← Detailed lore, design rationale, engineering
+    canon/       ← Canonical lore details
+    game-design/ ← Game system documentation
+    engineering/ ← Architecture, API, infrastructure
+    adr/         ← Architecture decision records
+README.md        ← Project overview + quick start
+.cursor/rules/    ← Agent behavior rules
+```
+
+**Priority (updates required when):**
+1. `docs/` changes — Always when game rules change
+2. `kb/` changes — When lore or design details change
+3. `README.md` changes — When build process changes
+
+---
+
+## docs/ — Game Rules (Canonical)
+
+### Contents
+
+| File | Purpose | Updated When |
+|------|---------|-------------|
+| `world-bible.md` | Lore, realms, sects, factions, NPCs | Lore expansion |
+| `realms.md` | Detailed realm definitions | Realm balance changes |
+| `regions.md` | Region descriptions, locations | Region expansion |
+| `rules.md` | Core gameplay rules | Game system changes |
+| `minigames.md` | Mini-game flows and calculations | Mini-game redesign |
+| `economy.md` | Currency, prices, sinks | Economy rebalancing |
+| `game-balancing.md` | Balance philosophy, metrics | Major balance changes |
+| `admin-rules.md` | Admin operations, audit | Admin policy changes |
+
+### Style Guide
+
+- **Tables** for structured data (realms, regions, sects, items)
+- **Code blocks** for formulas and constants
+- **No prose sections over 5 sentences** — break into bullets
+- **Version footer** — "Last updated: [date]" at bottom
+
+---
+
+## kb/ — Knowledge Base (Detailed)
+
+### canon/ — Canonical Lore Details
+
+Detailed lore that extends `docs/`:
+
+```
+kb/canon/
+├── world-overview.md       # One-page summary of the world
+├── cultivation-realms.md  # Extended realm descriptions
+├── regions.md            # Extended region descriptions
+├── sects.md             # Extended sect descriptions
+├── faction-relations.md # Faction dynamics
+└── currencies.md         # Currency lore and history
+```
+
+### game-design/ — System Documentation
+
+```
+kb/game-design/
+├── player-loop.md        # How players spend their time
+├── event-schema.md       # Event creation format
+├── quest-schema.md       # Quest creation format
+├── economy-rules.md     # Detailed economy mechanics
+├── alchemy-minigame.md  # Alchemy system design
+├── breakthrough-system.md# Breakthrough mechanics
+├── sect-system.md       # Sect management design
+└── encounter-design.md  # Encounter design guidelines
+```
+
+### engineering/ — Technical Documentation
+
+```
+kb/engineering/
+├── architecture.md       # System architecture overview
+├── database.md          # Database schema docs
+├── discord-interactions.md# Interaction patterns
+├── worker-jobs.md       # Background job documentation
+├── admin-panel.md      # Admin panel docs
+├── testing.md          # Testing strategy
+└── security.md         # Security practices
+```
+
+---
+
+## Architecture Decision Records (ADR)
+
+### Purpose
+
+ADRs document significant decisions: why a particular approach was chosen, what alternatives were considered, and what was rejected.
+
+### Format
+
+```markdown
+# ADR-0001: Discord bot is a client adapter only
+
+## Status
+Accepted
+
+## Context
+We need to decide how to structure the application so that:
+1. Game logic is testable without Discord
+2. A future web client can reuse game logic
+3. The bot doesn't become a tangled mess of business logic
+
+## Decision
+The Discord bot will be a pure UI adapter. It receives interactions,
+calls the API, and renders responses. All game logic lives in
+packages/core as pure TypeScript functions.
+
+## Consequences
+Positive:
+- Game logic is completely testable
+- Web client can reuse core
+- Bot stays simple
+
+Negative:
+- Every bot action requires an API call
+- Latency between interaction and response
+- More infrastructure required
+
+## Alternatives Considered
+
+### Bot contains game logic directly
+Rejected: Would require rewriting game logic for web client.
+Would make unit testing impossible.
+
+### Bot imports core directly (no API)
+Partially rejected: API provides better audit trail and
+allows admin panel to call same logic. Simpler initially
+but less flexible.
+
+---
+
+## Naming Conventions for ADRs
+
+```
+ADR-NNNN-title-in-kebab-case.md
+```
+
+Numbering starts at 0001 and increments.
+
+---
+
+## Documentation Update Triggers
+
+| Trigger | Required Update |
+|---------|----------------|
+| New realm added | `docs/realms.md`, `kb/canon/cultivation-realms.md` |
+| New region added | `docs/regions.md`, `kb/canon/regions.md` |
+| New sect added | `docs/world-bible.md`, `kb/canon/sects.md` |
+| Balance change | `docs/game-balancing.md`, `docs/rules.md` |
+| New API endpoint | `kb/engineering/architecture.md` |
+| Architecture change | New ADR in `kb/adr/` |
+| Lore expansion | `kb/canon/` (no `docs/` unless canon) |
+
+---
+
+## Documentation Review
+
+Before each release:
+
+- [ ] `docs/` matches current game behavior
+- [ ] `kb/` is internally consistent
+- [ ] No contradictions between `docs/` and `kb/`
+- [ ] ADRs are accurate (if approach changed, update ADR consequences)
+- [ ] README.md quick start is accurate
+- [ ] Cursor rules match current architecture
+
+---
+
+## File Templates
+
+### New Realm Entry (in `docs/realms.md`)
+
+```markdown
+### [Realm Name]
+
+**Latin Name:** [Latin]
+**Description:** [1-2 sentences]
+
+| Field | Value |
+|-------|-------|
+| Points per sub-stage | [N] |
+| Base breakthrough rate | [X]% |
+| Foundation min | [N] |
+| Unlock notes | [Text] |
+
+**Cultivation Points:** [N] per sub-stage ([T] total)
+
+**Abilities Unlocked:**
+- [Ability 1]
+- [Ability 2]
+
+**Visual Indicator:** [Description of how it appears in-game]
+```
+
+### New Sect Entry (in `docs/world-bible.md`)
+
+```markdown
+| ID | Name | Type | Rank | Specialty | HQ | Benefit 1 | Benefit 2 | Benefit 3 |
+|----|------|------|------|-----------|----|-----------|-----------|-----------|
+| [ID] | **Name** | Type | ★★ | Specialty | HQ | B1 | B2 | B3 |
+```
+
+### ADR Template
+
+```markdown
+# ADR-NNNN: [Title]
+
+## Status
+[Proposed | Accepted | Deprecated | Superseded by ADR-NNNN]
+
+## Context
+[Problem statement or question]
+
+## Decision
+[Chosen approach]
+
+## Consequences
+### Positive
+- [Benefit 1]
+
+### Negative
+- [Drawback 1]
+
+## Alternatives Considered
+### [Alternative 1]
+[Why rejected]
+```
+
+---
+
+## Discovery and Search
+
+When working on a feature:
+
+1. Check `docs/` for game rules
+2. Check `kb/` for detailed design
+3. Check `kb/adr/` for why things are the way they are
+4. Check `.cursor/rules/` for agent behavior
+
+If documentation is missing or wrong:
+1. Note it
+2. Fix it as part of the task
+3. Never leave documentation in a worse state than you found it
