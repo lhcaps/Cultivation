@@ -30,7 +30,27 @@ export class SectService {
 
   async joinSect(characterId: string, sectId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const character = await tx.character.update({
+      const character = await tx.character.findUnique({ where: { id: characterId } });
+      if (!character) {
+        throw new Error("Character not found");
+      }
+
+      if (character.sectId === sectId) {
+        throw new Error("Already a member of this sect");
+      }
+
+      const sect = await tx.sect.findUnique({ where: { id: sectId } });
+      if (!sect) {
+        throw new Error("Sect not found");
+      }
+
+      if (sect.isInviteOnly) {
+        throw new Error("This sect is invite-only");
+      }
+
+      const previousSectId = character.sectId;
+
+      const updated = await tx.character.update({
         where: { id: characterId },
         data: { sectId },
       });
@@ -39,12 +59,12 @@ export class SectService {
         data: {
           characterId,
           action: "SECT_JOIN",
-          details: { sectId },
+          details: { sectId, previousSectId },
           publicLog: false,
         },
       });
 
-      return character;
+      return updated;
     });
   }
 

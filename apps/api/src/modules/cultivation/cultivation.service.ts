@@ -61,14 +61,29 @@ export class CultivationService {
 
     // Apply to database in transaction
     await this.prisma.$transaction(async (tx) => {
+      // Update character stats
       await tx.character.update({
         where: { id: characterId },
         data: {
           cultivationPoints: { increment: result.pointsGained },
           heartDemon: { increment: result.heartDemonGained },
           lastCultivationAt: new Date(),
+          ...(result.injury > 0 ? { injuryLevel: { increment: result.injury } } : {}),
         },
       });
+
+      // Create injury record if any
+      if (result.injury > 0) {
+        await tx.injury.create({
+          data: {
+            characterId,
+            level: result.injury,
+            type: "NOI_THUONG",
+            source: mode,
+            expiresAt: new Date(Date.now() + result.injury * 3 * 86_400_000),
+          },
+        });
+      }
 
       if (result.spiritStonesGained > 0) {
         await tx.character.update({

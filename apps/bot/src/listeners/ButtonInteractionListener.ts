@@ -22,19 +22,19 @@ export class ButtonInteractionListener extends Listener {
 
     if (!interaction.customId.startsWith("cultivate:")) return;
 
+    await interaction.deferReply({ ephemeral: true });
+
     const parts = interaction.customId.split(":");
-    if (parts.length < 3) return;
+    if (parts.length < 3) {
+      return interaction.editReply({ content: "Custom ID khong hop le." });
+    }
 
     const targetId = parts[2]!;
     const rawMode = parts[1]!.toUpperCase();
     if (rawMode !== "STABLE" && rawMode !== "FORCED" && rawMode !== "SECLUSION" && rawMode !== "SECT") {
-      return interaction.editReply({
-        content: "Che do khong hop le.",
-      });
+      return interaction.editReply({ content: "Che do khong hop le." });
     }
     const mode = rawMode as CultivationMode;
-
-    await interaction.deferReply({ ephemeral: true });
 
     const discordUserId = interaction.user.id;
 
@@ -104,17 +104,18 @@ export class ButtonInteractionListener extends Listener {
 
       // Persist all changes atomically
       await prisma.$transaction(async (tx) => {
-        // Update character
+        // Update character stats
         await tx.character.update({
           where: { id: character.id },
           data: {
             cultivationPoints: { increment: result.pointsGained },
             heartDemon: { increment: result.heartDemonGained },
             lastCultivationAt: new Date(),
+            ...(result.injury > 0 ? { injuryLevel: { increment: result.injury } } : {}),
           },
         });
 
-        // Create injury if any
+        // Create injury record if any
         if (result.injury > 0) {
           await tx.injury.create({
             data: {
