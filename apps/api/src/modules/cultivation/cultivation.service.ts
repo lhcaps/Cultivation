@@ -6,7 +6,7 @@ import { CULTIVATION_MODES } from '@thien-nam/core/constants'
 import { resolveCultivation, canCultivate, type Rng } from '@thien-nam/core/rules'
 import { CharacterService } from '../character/character.service.js'
 import { PrismaService } from '../prisma/prisma.service.js'
-import type { CharacterState, CultivationMode } from '@thien-nam/core/types/index.js'
+import type { CharacterState, CultivationMode } from '@thien-nam/core/types'
 import {
   CultivationMenuResponseSchema,
   CultivationResultResponseSchema,
@@ -42,7 +42,7 @@ export class CultivationService {
     const progress = this.clampProgress(character.cultivationPoints, totalPoints)
 
     const modes = (Object.keys(CULTIVATION_MODES) as CultivationMode[]).map((mode) => {
-      const modeConfig = CULTIVATION_MODES[mode]
+      const modeConfig = CULTIVATION_MODES[mode]!
       const cooldownRemaining = this.getCooldownRemainingHours(
         character.lastCultivationAt,
         modeConfig.cooldownHours,
@@ -228,7 +228,7 @@ export class CultivationService {
       SECLUSION: 'Be quan 8 gio',
       SECT: 'Tong mon',
     }
-    return labels[mode]
+    return labels[mode]!
   }
 
   private clampProgress(points: number, totalPoints: number): number {

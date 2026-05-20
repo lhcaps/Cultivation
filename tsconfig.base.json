@@ -9,8 +9,12 @@
     "baseUrl": ".",
     "paths": {
       "@thien-nam/core": ["packages/core/dist"],
-      "@thien-nam/core/*": ["packages/core/dist/*"],
+      "@thien-nam/core/constants": ["packages/core/dist/constants"],
+      "@thien-nam/core/rules": ["packages/core/dist/rules"],
+      "@thien-nam/core/types": ["packages/core/dist/types"],
+
       "@thien-nam/db": ["packages/db/dist"],
+      "@thien-nam/db/client": ["packages/db/dist/client"],
       "@thien-nam/db/*": ["packages/db/dist/*"]
     },
     "declaration": true,
