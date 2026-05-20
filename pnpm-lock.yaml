@@ -220,6 +220,9 @@ importers:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.5.0
+        version: 1.6.1(@types/node@20.19.41)(terser@5.47.1)
 
   apps/bot:
     dependencies:
@@ -232,12 +235,6 @@ importers:
       '@sapphire/plugin-utilities-store':
         specifier: ^2.0.3
         version: 2.0.3
-      '@thien-nam/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@thien-nam/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       discord-api-types:
         specifier: ^0.37.80
         version: 0.37.120
@@ -247,9 +244,6 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.12.0

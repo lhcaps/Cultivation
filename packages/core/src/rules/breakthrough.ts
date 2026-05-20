@@ -1,22 +1,22 @@
 /**
  * Breakthrough rules — pure functions for realm advancement.
  */
-import { REALMS, type RealmId } from "../constants/realms.js";
-import { CULTIVATION_CONSTANTS } from "../constants/cultivation.js";
-import { INJURY_LEVELS } from "../constants/combat.js";
+import { REALMS, type RealmId } from '../constants/realms.js'
+import { CULTIVATION_CONSTANTS } from '../constants/cultivation.js'
+import { INJURY_LEVELS } from '../constants/combat.js'
 import type {
   CharacterState,
   BreakthroughResult,
   BreakthroughMode,
   InjuryLevel,
-} from "../types/index.js";
+} from '../types/index.js'
 
 /** Default RNG using Math.random() */
-const defaultRng = () => Math.random();
+const defaultRng = () => Math.random()
 
 /** Rng interface for deterministic testing */
 export interface Rng {
-  next(): number;
+  next(): number
 }
 
 /**
@@ -26,53 +26,53 @@ export function calculateBreakthroughRate(
   character: CharacterState,
   mode: BreakthroughMode,
 ): number {
-  const realmDef = REALMS[character.realm]!;
-  let rate = realmDef.baseBreakthroughRate;
+  const realmDef = REALMS[character.realm]!
+  let rate = realmDef.baseBreakthroughRate
 
   // Foundation quality bonus: +1% per 5 quality
-  rate += character.foundationQuality / 500;
+  rate += character.foundationQuality / 500
 
   // Heart demon penalty
-  const heartDemonPenalty = 1 - character.heartDemon / 200;
-  rate *= heartDemonPenalty;
+  const heartDemonPenalty = 1 - character.heartDemon / 200
+  rate *= heartDemonPenalty
 
   // Injury penalty: -10% per level
-  rate *= 1 - character.injuryLevel * 0.10;
+  rate *= 1 - character.injuryLevel * 0.1
 
-  // Location bonus
-  // In sect HQ: +10%
-  // TODO: Check if character is in sect HQ
+  // Sect/HQ advantages are represented by SECT_FORMATION until the API
+  // passes explicit headquarters context into the core snapshot.
 
   // Mode modifiers
-  if (mode === "STABLE") {
+  if (mode === 'STABLE') {
     // No modifier, base rate
-  } else if (mode === "FORCED") {
-    rate *= 0.70;
-  } else if (mode === "PILL") {
-    rate *= 1.30;
-  } else if (mode === "SECT_FORMATION") {
-    rate *= 1.50;
+  } else if (mode === 'FORCED') {
+    rate *= 0.7
+  } else if (mode === 'PILL') {
+    rate *= 1.3
+  } else if (mode === 'SECT_FORMATION') {
+    rate *= 1.5
   }
 
   // Clamp between 1% and 99%
-  return Math.max(0.01, Math.min(0.99, rate));
+  return Math.max(0.01, Math.min(0.99, rate))
 }
 
 /**
  * Check if character meets all breakthrough prerequisites.
  */
-export function checkBreakthroughPrerequisites(
-  character: CharacterState,
-): { valid: boolean; reason: string | null } {
-  const realmDef = REALMS[character.realm]!;
-  const totalRealmPoints = realmDef.pointsPerSubStage * 3;
+export function checkBreakthroughPrerequisites(character: CharacterState): {
+  valid: boolean
+  reason: string | null
+} {
+  const realmDef = REALMS[character.realm]!
+  const totalRealmPoints = realmDef.pointsPerSubStage * 3
 
   // Check cultivation points
   if (character.cultivationPoints < totalRealmPoints) {
     return {
       valid: false,
       reason: `Tu vi chưa đầy. Cần ${totalRealmPoints.toLocaleString()}, hiện có ${character.cultivationPoints.toLocaleString()}.`,
-    };
+    }
   }
 
   // Check heart demon
@@ -80,7 +80,7 @@ export function checkBreakthroughPrerequisites(
     return {
       valid: false,
       reason: `Tâm ma quá cao (${character.heartDemon}). Cần giảm xuống dưới ${CULTIVATION_CONSTANTS.HEART_DEMON_CRITICAL} để đột phá.`,
-    };
+    }
   }
 
   // Check injury
@@ -88,18 +88,18 @@ export function checkBreakthroughPrerequisites(
     return {
       valid: false,
       reason: `Thương thương quá nặng (cấp ${character.injuryLevel}). Cần chữa lành trước.`,
-    };
+    }
   }
 
   // Check manual
   if (!character.manualId) {
     return {
       valid: false,
-      reason: "Cần có công pháp phù hợp để đột phá.",
-    };
+      reason: 'Cần có công pháp phù hợp để đột phá.',
+    }
   }
 
-  return { valid: true, reason: null };
+  return { valid: true, reason: null }
 }
 
 /**
@@ -107,19 +107,19 @@ export function checkBreakthroughPrerequisites(
  */
 export function getNextRealm(current: RealmId): RealmId | null {
   const order = [
-    "LUYEN_THE",
-    "KHI_TUC",
-    "LUYEN_HON",
-    "TRUC_MACH",
-    "KIM_DAN",
-    "NGUYEN_ANH",
-    "HOA_THAN",
-    "TRU_THAN",
-    "DAI_THUA",
-    "NGU_BAT_TON",
-  ] as const;
-  const idx = order.indexOf(current);
-  return idx < order.length - 1 ? order[idx + 1]! : null;
+    'LUYEN_THE',
+    'KHI_TUC',
+    'LUYEN_HON',
+    'TRUC_MACH',
+    'KIM_DAN',
+    'NGUYEN_ANH',
+    'HOA_THAN',
+    'TRU_THAN',
+    'DAI_THUA',
+    'NGU_BAT_TON',
+  ] as const
+  const idx = order.indexOf(current)
+  return idx < order.length - 1 ? order[idx + 1]! : null
 }
 
 /**
@@ -131,25 +131,24 @@ export function resolveBreakthrough(
   rng: Rng = { next: defaultRng },
 ): BreakthroughResult {
   // Validate prerequisites
-  const prereq = checkBreakthroughPrerequisites(character);
+  const prereq = checkBreakthroughPrerequisites(character)
   if (!prereq.valid) {
-    throw new Error(prereq.reason ?? "Không thể đột phá.");
+    throw new Error(prereq.reason ?? 'Không thể đột phá.')
   }
 
-  const successRate = calculateBreakthroughRate(character, mode);
-  const roll = rng.next();
+  const successRate = calculateBreakthroughRate(character, mode)
+  const roll = rng.next()
 
   // Calculate foundation gain on success
-  const foundationGain =
-    mode === "FORCED" ? 5 : mode === "SECT_FORMATION" ? 6 : 3;
+  const foundationGain = mode === 'FORCED' ? 5 : mode === 'SECT_FORMATION' ? 6 : 3
 
   if (roll < successRate * 0.95) {
     // Normal success
-    const nextRealm = getNextRealm(character.realm);
+    const nextRealm = getNextRealm(character.realm)
     if (!nextRealm) {
       // Already at max realm
       return {
-        outcome: "CRITICAL_SUCCESS",
+        outcome: 'CRITICAL_SUCCESS',
         newRealm: character.realm,
         newSubStage: character.subStage,
         foundationGain: 0,
@@ -160,28 +159,28 @@ export function resolveBreakthrough(
         publicLog: false,
         publicLogMessage: null,
         hiddenPotentialUnlocked: false,
-      };
+      }
     }
 
     return {
-      outcome: "SUCCESS",
+      outcome: 'SUCCESS',
       newRealm: nextRealm,
-      newSubStage: "SO",
+      newSubStage: 'SO',
       foundationGain,
       cultivationPointsLoss: 0,
       heartDemonGain: 0,
       injury: 0,
-      cooldownDays: mode === "STABLE" ? 1 : 2,
+      cooldownDays: mode === 'STABLE' ? 1 : 2,
       publicLog: false,
       publicLogMessage: null,
       hiddenPotentialUnlocked: false,
-    };
+    }
   } else if (roll < successRate) {
     // Critical success
-    const nextRealm = getNextRealm(character.realm);
+    const nextRealm = getNextRealm(character.realm)
     if (!nextRealm) {
       return {
-        outcome: "CRITICAL_SUCCESS",
+        outcome: 'CRITICAL_SUCCESS',
         newRealm: character.realm,
         newSubStage: character.subStage,
         foundationGain: 6,
@@ -191,14 +190,14 @@ export function resolveBreakthrough(
         cooldownDays: 1,
         publicLog: true,
         publicLogMessage: `${character.name} dat sieu cap tai ${REALMS[character.realm]!.name} hau ky!`,
-        hiddenPotentialUnlocked: rng.next() < 0.10,
-      };
+        hiddenPotentialUnlocked: rng.next() < 0.1,
+      }
     }
 
     return {
-      outcome: "CRITICAL_SUCCESS",
+      outcome: 'CRITICAL_SUCCESS',
       newRealm: nextRealm,
-      newSubStage: "SO",
+      newSubStage: 'SO',
       foundationGain: 6,
       cultivationPointsLoss: 0,
       heartDemonGain: 0,
@@ -206,13 +205,13 @@ export function resolveBreakthrough(
       cooldownDays: 1,
       publicLog: true,
       publicLogMessage: `${character.name} dot pha thanh cong! ${REALMS[character.realm]!.name} hau ky → ${REALMS[nextRealm]!.name} so ky`,
-      hiddenPotentialUnlocked: rng.next() < 0.10,
-    };
-  } else if (roll < successRate + 0.30) {
+      hiddenPotentialUnlocked: rng.next() < 0.1,
+    }
+  } else if (roll < successRate + 0.3) {
     // Minor failure
-    const minorLoss = Math.floor(character.cultivationPoints * 0.10);
+    const minorLoss = Math.floor(character.cultivationPoints * 0.1)
     return {
-      outcome: "MINOR_FAILURE",
+      outcome: 'MINOR_FAILURE',
       newRealm: null,
       newSubStage: null,
       foundationGain: 0,
@@ -223,13 +222,13 @@ export function resolveBreakthrough(
       publicLog: false,
       publicLogMessage: null,
       hiddenPotentialUnlocked: false,
-    };
+    }
   }
   // Severe failure
-  const severeLoss = Math.floor(character.cultivationPoints * 0.25);
-  const extraInjury = mode === "FORCED" ? 2 : 1;
+  const severeLoss = Math.floor(character.cultivationPoints * 0.25)
+  const extraInjury = mode === 'FORCED' ? 2 : 1
   return {
-    outcome: "SEVERE_FAILURE",
+    outcome: 'SEVERE_FAILURE',
     newRealm: null,
     newSubStage: null,
     foundationGain: 0,
@@ -240,5 +239,5 @@ export function resolveBreakthrough(
     publicLog: false,
     publicLogMessage: null,
     hiddenPotentialUnlocked: false,
-  };
+  }
 }

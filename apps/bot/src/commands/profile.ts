@@ -1,104 +1,97 @@
 /**
- * Profile command — view character stats (ephemeral).
+ * Profile command - view character stats through the API.
  */
-import { Command } from "@sapphire/framework";
-import { type ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import { prisma } from "@thien-nam/db";
-import { EmbedColors } from "../utils/interaction.js";
+import { Command } from '@sapphire/framework'
+import { type ChatInputCommandInteraction, EmbedBuilder } from 'discord.js'
+import { apiClient } from '../api/client.js'
+import { EmbedColors } from '../utils/interaction.js'
 
 export class ProfileCommand extends Command {
   public constructor(context: Command.Context, options: Command.Options) {
     super(context, {
       ...options,
-      name: "profile",
-      description: "Xem thong tin nhan vat",
-    });
+      name: 'profile',
+      description: 'Xem thong tin nhan vat',
+    })
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
     registry.registerChatInputCommand((builder) =>
-      builder
-        .setName("profile")
-        .setDescription("Xem thong tin nhan vat"),
-    );
+      builder.setName('profile').setDescription('Xem thong tin nhan vat'),
+    )
   }
 
   public override async chatInputRun(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ ephemeral: true })
 
-    const discordUserId = interaction.user.id;
+    try {
+      const profile = await apiClient.getProfile(interaction.user.id)
+      if (!profile) {
+        return interaction.editReply({
+          content: 'Nguoi chua co nhan vat. Dung **/start** de tao nhan vat.',
+        })
+      }
 
-    const user = await prisma.user.findUnique({
-      where: { discordId: discordUserId },
-      include: {
-        characters: {
-          include: {
-            realm: true,
-            region: true,
-            sect: true,
-            manual: true,
+      const progress = clampProgress(profile.progress)
+      const progressBar =
+        '='.repeat(Math.floor(progress / 10)) + '-'.repeat(10 - Math.floor(progress / 10))
+
+      const embed = new EmbedBuilder()
+        .setTitle(`${profile.name}`)
+        .setColor(EmbedColors.INFO)
+        .addFields(
+          {
+            name: 'Canh gioi',
+            value:
+              `${profile.realm.name} (${profile.subStage} ky)\n` +
+              `${progressBar} ${progress}%\n` +
+              `${profile.cultivationPoints.toLocaleString()} / ${profile.totalPoints.toLocaleString()} tu vi`,
+            inline: true,
           },
-        },
-      },
-    });
+          {
+            name: 'Trang thai',
+            value:
+              `HP: ${profile.currentHp}/${profile.maxHp}\n` +
+              `Qi: ${profile.currentQi}/${profile.maxQi}\n` +
+              `Can co: ${profile.foundationQuality}/100`,
+            inline: true,
+          },
+          {
+            name: 'Tam ma',
+            value: `Tam ma: ${profile.heartDemon}/100\nThuong the: Cap ${profile.injuryLevel}`,
+            inline: false,
+          },
+          {
+            name: 'Tai nguyen',
+            value:
+              `Bac: ${profile.silver.toLocaleString()} Ag\n` +
+              `Linh Thach: ${profile.spiritStones.toLocaleString()} ST\n` +
+              `Cong Huan: ${profile.merit.toLocaleString()} Mer\n` +
+              `Danh Vong: ${profile.reputation.toLocaleString()} Rep`,
+            inline: true,
+          },
+          {
+            name: 'Vi tri',
+            value:
+              `Vung: ${profile.regionName}\n` +
+              `Tong mon: ${profile.sectName ?? 'Vo tong'}\n` +
+              `Cong phap: ${profile.manualName ?? 'Khong co'}`,
+            inline: true,
+          },
+        )
+        .setFooter({ text: 'Thien Nam Vo Luc' })
+        .setTimestamp()
 
-    if (!user || user.characters.length === 0) {
+      return interaction.editReply({ embeds: [embed] })
+    } catch (error) {
+      this.container.logger.error('Profile lookup failed:', error)
       return interaction.editReply({
-        content: "Ngươi chưa có nhân vật. Dùng **/start** để tạo nhân vật.",
-      });
+        content: 'Co loi xay ra khi lay ho so nhan vat. Vui long thu lai sau.',
+      })
     }
-
-    const character = user.characters[0]!;
-    const realmDef = character.realm;
-    const totalPoints = realmDef.pointsPerSubStage * 3;
-    const progress = Math.round((character.cultivationPoints / totalPoints) * 100);
-    const progressBar = "=".repeat(Math.floor(progress / 10)) + "-".repeat(10 - Math.floor(progress / 10));
-
-    const embed = new EmbedBuilder()
-      .setTitle(`${character.name}`)
-      .setColor(EmbedColors.INFO)
-      .addFields(
-        {
-          name: "Canh giai",
-          value: `${realmDef.name} (${character.subStage} ky)\n` +
-            `${progressBar} ${progress}%\n` +
-            `${character.cultivationPoints.toLocaleString()} / ${totalPoints.toLocaleString()} tu vi`,
-          inline: true,
-        },
-        {
-          name: "Trang thai",
-          value:
-            `HP: ${character.currentHp}/${character.maxHp}\n` +
-            `Qi: ${character.currentQi}/${character.maxQi}\n` +
-            `Can co: ${character.foundationQuality}/100`,
-          inline: true,
-        },
-        {
-          name: "Tam ma",
-          value: `Tam ma: ${character.heartDemon}/100\nThuong thuong: Cap ${character.injuryLevel}`,
-          inline: false,
-        },
-        {
-          name: "Tai nguyen",
-          value:
-            `Bac: ${character.silver.toLocaleString()} Ag\n` +
-            `Linh Thach: ${character.spiritStones.toLocaleString()} ST\n` +
-            `Cong Huan: ${character.merit.toLocaleString()} Mer\n` +
-            `Danh Vong: ${character.reputation.toLocaleString()} Rep`,
-          inline: true,
-        },
-        {
-          name: "Vi tri",
-          value:
-            `Vung: ${character.region.name}\n` +
-            `Tong mon: ${character.sect?.name ?? "Vo tong"}\n` +
-            `Cong phap: ${character.manual?.name ?? "Khong co"}`,
-          inline: true,
-        },
-      )
-      .setFooter({ text: "Thien Nam Vo Luc" })
-      .setTimestamp();
-
-    return interaction.editReply({ embeds: [embed] });
   }
+}
+
+function clampProgress(progress: number): number {
+  return Math.min(100, Math.max(0, progress))
 }

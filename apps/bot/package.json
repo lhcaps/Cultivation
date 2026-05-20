@@ -15,12 +15,9 @@
     "@sapphire/framework": "^4.8.0",
     "@sapphire/plugin-logger": "^3.0.6",
     "@sapphire/plugin-utilities-store": "^2.0.3",
-    "@thien-nam/core": "workspace:*",
-    "@thien-nam/db": "workspace:*",
     "discord-api-types": "^0.37.80",
     "discord.js": "^14.15.0",
-    "dotenv": "^16.4.5",
-    "zod": "^3.23.0"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
