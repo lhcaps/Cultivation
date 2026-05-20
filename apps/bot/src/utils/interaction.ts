@@ -23,15 +23,16 @@ export function parseCustomId(customId: string): {
 }
 
 /**
- * Build a custom_id with pattern.
+ * Build a custom_id with pattern: action:subAction:targetId:nonce
+ * Pass deterministic nonce for testable buttons, or omit for random.
  */
 export function buildCustomId(
   action: string,
   subAction: string,
   targetId: string,
+  nonce?: string,
 ): string {
-  const nonce = Math.random().toString(36).substring(2, 8);
-  return `${action}:${subAction}:${targetId}:${nonce}`;
+  return `${action}:${subAction}:${targetId}:${nonce ?? Math.random().toString(36).substring(2, 8)}`;
 }
 
 /**

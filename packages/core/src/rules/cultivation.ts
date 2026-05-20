@@ -41,13 +41,9 @@ export function getBaseCultivationPoints(realm: RealmId): number {
  * Get the Qi multiplier for a region.
  * Used to adjust cultivation speed based on location.
  */
-export function getRegionQiMultiplier(region: string): number {
+export function getRegionQiMultiplier(regionId: string): number {
   const multipliers: Record<string, number> = {
-    // HQ bonus
-    THIEN_Y_DAN_QUOC: 1.20,
-    THANH_VAN_TONG: 1.20,
-    CHINH_DƯƠNG_TONG: 1.20,
-    // Region penalties/bonuses
+    // Region bonuses/penalties
     DAI_VIET: 1.00,
     TRUNG_NGUYEN: 1.00,
     TAY_VUC: 1.00,
@@ -57,7 +53,21 @@ export function getRegionQiMultiplier(region: string): number {
     NAM_MAN: 1.00,
     CON_LON: 1.00,
   };
-  return multipliers[region] ?? 1.00;
+  return multipliers[regionId] ?? 1.00;
+}
+
+/**
+ * Get the cultivation bonus multiplier for a sect.
+ * Sect HQ bonuses are separate from region bonuses.
+ */
+export function getSectCultivationMultiplier(sectId: string): number {
+  const multipliers: Record<string, number> = {
+    // Sect HQ bonuses — these override region bonuses when in sect mode
+    CHINH_DUONG_TONG: 1.20,
+    THANH_VAN_TONG: 1.20,
+    THIEN_Y_DAN_QUOC: 1.20,
+  };
+  return multipliers[sectId] ?? 1.00;
 }
 
 /**
@@ -95,21 +105,22 @@ export function calculateCultivationGain(
   realm: RealmId,
   mode: CultivationMode,
   foundationQuality: number,
-  region: string,
+  regionId: string,
   heartDemon: number,
   hasManual: boolean,
-  inSect: boolean,
+  sectId: string | null,
   rng: Rng = { next: defaultRng },
 ): number {
   const modeConfig = CULTIVATION_MODES[mode]!;
   const baseGain = getBaseCultivationPoints(realm);
-  const regionMultiplier = getRegionQiMultiplier(region);
+  const regionMultiplier = getRegionQiMultiplier(regionId);
+  const sectMultiplier = mode === "SECT" && sectId ? getSectCultivationMultiplier(sectId) : 1.00;
 
   // Foundation quality: 20 base = 1.0, each 10 above = +0.1, each 10 below = -0.1
   const foundationMultiplier = 1 + (foundationQuality - 20) / 100;
   const heartDemonPenalty = getHeartDemonPenalty(heartDemon);
   const manualBonus = hasManual ? 1.10 : 1.00;
-  const sectBonus = inSect && mode === "SECT" ? 1.15 : 1.00;
+  const sectBonus = mode === "SECT" ? sectMultiplier : 1.00;
 
   const gain = Math.floor(
     baseGain *
@@ -159,7 +170,7 @@ export function resolveCultivation(
     character.region,
     character.heartDemon,
     character.manualId !== null,
-    character.sectId !== null,
+    character.sectId,
     rng,
   );
 

@@ -68,7 +68,7 @@ export class StartCommand extends Command {
     const maxQi = 50;
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         const user = await tx.user.upsert({
           where: { discordId: discordUserId },
           update: {},
@@ -93,16 +93,16 @@ export class StartCommand extends Command {
           },
         });
 
-        return { user, character };
-      });
+        await tx.actionLog.create({
+          data: {
+            characterId: character.id,
+            action: "CHARACTER_CREATED",
+            details: { name },
+            publicLog: false,
+          },
+        });
 
-      await prisma.actionLog.create({
-        data: {
-          characterId: result.character.id,
-          action: "CHARACTER_CREATED",
-          details: { name },
-          publicLog: false,
-        },
+        void user;
       });
 
       return interaction.editReply({

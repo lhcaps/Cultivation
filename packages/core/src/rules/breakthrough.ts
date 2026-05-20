@@ -11,6 +11,14 @@ import type {
   InjuryLevel,
 } from "../types/index.js";
 
+/** Default RNG using Math.random() */
+const defaultRng = () => Math.random();
+
+/** Rng interface for deterministic testing */
+export interface Rng {
+  next(): number;
+}
+
 /**
  * Calculate the actual breakthrough success rate for a character.
  */
@@ -120,6 +128,7 @@ export function getNextRealm(current: RealmId): RealmId | null {
 export function resolveBreakthrough(
   character: CharacterState,
   mode: BreakthroughMode,
+  rng: Rng = { next: defaultRng },
 ): BreakthroughResult {
   // Validate prerequisites
   const prereq = checkBreakthroughPrerequisites(character);
@@ -128,7 +137,7 @@ export function resolveBreakthrough(
   }
 
   const successRate = calculateBreakthroughRate(character, mode);
-  const roll = Math.random();
+  const roll = rng.next();
 
   // Calculate foundation gain on success
   const foundationGain =
@@ -182,7 +191,7 @@ export function resolveBreakthrough(
         cooldownDays: 1,
         publicLog: true,
         publicLogMessage: `${character.name} dat sieu cap tai ${REALMS[character.realm]!.name} hau ky!`,
-        hiddenPotentialUnlocked: Math.random() < 0.10,
+        hiddenPotentialUnlocked: rng.next() < 0.10,
       };
     }
 
@@ -197,17 +206,17 @@ export function resolveBreakthrough(
       cooldownDays: 1,
       publicLog: true,
       publicLogMessage: `${character.name} dot pha thanh cong! ${REALMS[character.realm]!.name} hau ky → ${REALMS[nextRealm]!.name} so ky`,
-      hiddenPotentialUnlocked: Math.random() < 0.10,
+      hiddenPotentialUnlocked: rng.next() < 0.10,
     };
   } else if (roll < successRate + 0.30) {
     // Minor failure
-    const cultivationLoss = Math.floor(character.cultivationPoints * 0.10);
+    const minorLoss = Math.floor(character.cultivationPoints * 0.10);
     return {
       outcome: "MINOR_FAILURE",
       newRealm: null,
       newSubStage: null,
       foundationGain: 0,
-      cultivationPointsLoss: cultivationLoss,
+      cultivationPointsLoss: minorLoss,
       heartDemonGain: 5,
       injury: 1,
       cooldownDays: 1,
@@ -215,22 +224,21 @@ export function resolveBreakthrough(
       publicLogMessage: null,
       hiddenPotentialUnlocked: false,
     };
-  } else {
-    // Severe failure
-    const cultivationLoss = Math.floor(character.cultivationPoints * 0.25);
-    const extraInjury = mode === "FORCED" ? 2 : 1;
-    return {
-      outcome: "SEVERE_FAILURE",
-      newRealm: null,
-      newSubStage: null,
-      foundationGain: 0,
-      cultivationPointsLoss: cultivationLoss,
-      heartDemonGain: 15,
-      injury: extraInjury as InjuryLevel,
-      cooldownDays: 3,
-      publicLog: false,
-      publicLogMessage: null,
-      hiddenPotentialUnlocked: false,
-    };
   }
+  // Severe failure
+  const severeLoss = Math.floor(character.cultivationPoints * 0.25);
+  const extraInjury = mode === "FORCED" ? 2 : 1;
+  return {
+    outcome: "SEVERE_FAILURE",
+    newRealm: null,
+    newSubStage: null,
+    foundationGain: 0,
+    cultivationPointsLoss: severeLoss,
+    heartDemonGain: 15,
+    injury: extraInjury as InjuryLevel,
+    cooldownDays: 3,
+    publicLog: false,
+    publicLogMessage: null,
+    hiddenPotentialUnlocked: false,
+  };
 }

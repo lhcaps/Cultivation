@@ -29,7 +29,7 @@ async function main() {
     "seclusion-complete",
     async (job: Job<{ characterId: string; pointsEarned: number }>) => {
       console.log(`[Seclusion] Job ${job.id} for character ${job.data.characterId}`);
-      const { characterId, pointsEarned } = job.data;
+      const { pointsEarned } = job.data;
       // TODO: Apply seclusion rewards
       return { success: true, pointsEarned };
     },

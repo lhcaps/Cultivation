@@ -8,6 +8,14 @@ import type {
   AlchemyRecipe,
 } from "../types/index.js";
 
+/** Default RNG using Math.random() */
+const defaultRng = () => Math.random();
+
+/** Rng interface for deterministic testing */
+export interface Rng {
+  next(): number;
+}
+
 export const FIRE_CONTROL_CHOICES = {
   ROUND_1_IGNITE: {
     A: { label: "Tiểu Hỏa", stabilityMod: 10, purityMod: 0, outputMod: -5, qiCost: 5 },
@@ -45,6 +53,7 @@ export function calculatePillQuality(
   character: CharacterState,
   recipe: AlchemyRecipe,
   choices: FireControlChoice[],
+  rng: Rng = { next: defaultRng },
 ): { stability: number; purity: number; output: number } {
   let stability = recipe.baseStability;
   let purity = recipe.basePurity;
@@ -75,12 +84,10 @@ export function calculatePillQuality(
   // Apply character modifiers
   // Foundation quality bonus
   stability += character.foundationQuality * 0.3;
-  // Region bonus (alchemy-focused regions)
-  // TODO: Add region-based bonuses
   // Random variance: ±10
-  stability += (Math.random() - 0.5) * 20;
-  purity += (Math.random() - 0.5) * 10;
-  output += (Math.random() - 0.5) * 20;
+  stability += (rng.next() - 0.5) * 20;
+  purity += (rng.next() - 0.5) * 10;
+  output += (rng.next() - 0.5) * 20;
 
   return {
     stability: Math.max(0, Math.min(100, Math.round(stability))),
@@ -118,6 +125,7 @@ export function resolveAlchemy(
   character: CharacterState,
   recipe: AlchemyRecipe,
   choices: FireControlChoice[],
+  rng: Rng = { next: defaultRng },
 ): AlchemyResult {
   // Check Qi
   const totalQiCost = choices.reduce((sum, c) => sum + c.qiCost, 0);
@@ -125,17 +133,17 @@ export function resolveAlchemy(
     throw new Error("Qi không đủ để thực hiện luyện đan.");
   }
 
-  const { stability, purity, output } = calculatePillQuality(character, recipe, choices);
+  const { stability, purity, output } = calculatePillQuality(character, recipe, choices, rng);
   const quality = determinePillQuality(stability, purity);
 
   // Check for Đan Kiếp (Pill Tribulation)
-  const danKiep = quality === "CUC_PHAM" && Math.random() < 0.05;
+  const danKiep = quality === "CUC_PHAM" && rng.next() < 0.05;
   let danKiepResult: "WIN" | "LOSE" | null = null;
 
   if (danKiep) {
     // Pill tribulation: higher realm = better chance
     const tribulationChance = Math.min(0.9, 0.5 + character.foundationQuality / 200);
-    danKiepResult = Math.random() < tribulationChance ? "WIN" : "LOSE";
+    danKiepResult = rng.next() < tribulationChance ? "WIN" : "LOSE";
   }
 
   // Determine if ingredients are lost
