@@ -1,0 +1,112 @@
+# Thiên Nam Engine — Cursor Rules
+
+You are working on **Thiên Nam Engine**, a Discord-first cultivation RPG built as a monorepo.
+
+## Architecture Rules
+
+- **Discord bot is only a client adapter.** It receives interactions, calls the Game Engine, renders UI, and sends logs. Nothing else.
+- **Game rules must live in `packages/core` as pure TypeScript functions.** No discord.js, no NestJS imports.
+- **Database access must happen through `packages/db` (Prisma) or API services.** Never query the DB directly from commands.
+- **Never put game balance constants inside Discord commands.** All numbers go in `packages/core/src/constants/`.
+- **Every player action must create an ActionLog.** Every admin mutation must create an AdminAuditLog. No exceptions.
+- **Personal game UI must be ephemeral** (`flags: 64`). Public logs only for notable events (breakthrough, Cực Phẩm, top leaderboard).
+- **Validate `interaction.user.id` before processing buttons/select menus.** Players cannot press each other's buttons.
+- **`custom_id` must follow the pattern:** `action:subAction:targetId:nonce`
+- **Use Zod for all input validation.** Never trust raw user input.
+- **Use Prisma transactions for multi-step state changes.** Never update state in multiple queries without a transaction.
+- **Write unit tests for all game engine functions** (cultivation, breakthrough, alchemy, combat).
+
+## Code Style
+
+- **Strict TypeScript.** No `any`, no implicit `any`.
+- **Pure functions first.** If a function has side effects, make it explicit.
+- **No magic numbers.** Define constants with descriptive names.
+- **`packages/core` has zero external dependencies** except Zod (for schema validation only).
+- **ESM modules.** Use `.js` extensions in imports. Top-level `await` is allowed.
+- **Prefer `Map` and `Set` over plain objects for lookups.**
+- **Use `Math.random()` for game rolls.** For testable randomness, allow seed injection.
+
+## File Structure
+
+```
+apps/
+  bot/           — discord.js + @sapphire/framework commands and interactions
+  api/           — NestJS REST API
+  admin/         — Next.js admin dashboard
+  worker/        — BullMQ job workers
+packages/
+  core/          — Pure game engine (no external deps except Zod)
+    src/
+      constants/ — World constants (realms, cultivation, combat, economy, time)
+      types/    — Zod schemas + TypeScript interfaces
+      rules/    — Pure game logic functions
+      calculators/ — Re-exports from rules
+  db/            — Prisma client + migrations + seeds
+ui-shared/       — Shared UI utilities
+```
+
+## Naming Conventions
+
+- **Realm IDs:** `LUYEN_THE`, `KHI_TUC`, `LUYEN_HON`, etc.
+- **Region IDs:** `DAI_VIET`, `TRUNG_NGUYEN`, `U_MINH`, etc.
+- **Cultivation modes:** `STABLE`, `FORCED`, `SECLUSION`, `SECT`
+- **Breakthrough modes:** `STABLE`, `FORCED`, `PILL`, `SECT_FORMATION`
+- **Alchemy quality:** `THAT_BAI`, `HA_PHAM`, `TRUNG_PHAM`, `THUONG_PHAM`, `CUC_PHAM`
+- **Realm sub-stages:** `SƠ`, `TRUNG`, `HẬU`
+- **Sect alignment:** `CHINH`, `TA`, `TRUNG`
+
+## Database Rules
+
+- All Prisma models must have indexes on `foreign keys` and `createdAt`.
+- Soft deletes are preferred over hard deletes for characters.
+- Every mutation must include audit logging.
+- Seed data lives in `packages/db/prisma/seed.ts`.
+
+## Game Balance Rules
+
+- **No single action should grant more than 1% of a realm's total points.**
+- **Risk and reward must be correlated.** Forced cultivation gives more points but has injury risk.
+- **Leaderboard soft caps exist.** See `packages/core/src/constants/economy.ts`.
+- **All balance changes require documentation in the commit message.**
+
+## Discord UI Rules
+
+- Use **ephemeral** for personal menus (`flags: 64`).
+- Use **select menus** for scrolling lists (regions, sects, recipes).
+- Use **buttons** for single-choice actions (cultivate mode, fire control rounds).
+- Use **modals** only for text input (character name, custom messages).
+- Keep embeds under 25 fields (Discord limit).
+- Use named emojis or Discord built-in emojis instead of custom emoji IDs.
+
+## Testing Rules
+
+- **Core functions must have unit tests** with >80% coverage.
+- **Test edge cases:** zero cultivation points, max heart demon, severe injury + breakthrough.
+- **Mock Prisma for API tests.**
+- **End-to-end tests are optional** for Phase 1-5.
+
+## Git Workflow
+
+- **Atomic commits:** one logical change per commit.
+- **Conventional commits:** `feat:`, `fix:`, `docs:`, `refactor:`, `test:`.
+- **Branch naming:** `feature/phase-N-feature-name`, `fix/bug-description`.
+- **Never commit `.env` files.** Use `.env.example` as template.
+
+## Priority Order
+
+When implementing features, follow this priority:
+
+1. **Game engine first** (`packages/core`) — pure functions with tests
+2. **API second** (`apps/api`) — NestJS services and controllers
+3. **Discord bot third** (`apps/bot`) — commands and interactions
+4. **Worker fourth** (`apps/worker`) — BullMQ jobs
+5. **Admin panel last** (`apps/admin`) — Next.js dashboard
+
+## Anti-Patterns
+
+- **Do NOT** put game logic in Discord command files.
+- **Do NOT** hardcode item IDs, realm names, or sect names in commands.
+- **Do NOT** use `any` type.
+- **Do NOT** create global mutable state.
+- **Do NOT** skip transactions for multi-step database operations.
+- **Do NOT** expose internal errors to players without sanitizing.

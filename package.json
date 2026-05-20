@@ -1,0 +1,58 @@
+{
+  "name": "thien-nam-engine",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:bot": "pnpm --filter @thien-nam/bot dev",
+    "dev:api": "pnpm --filter @thien-nam/api dev",
+    "dev:admin": "pnpm --filter @thien-nam/admin dev",
+    "dev:worker": "pnpm --filter @thien-nam/worker dev",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "test:coverage": "turbo test:coverage",
+    "db:generate": "pnpm --filter @thien-nam/db generate",
+    "db:migrate": "pnpm --filter @thien-nam/db migrate",
+    "db:push": "pnpm --filter @thien-nam/db push",
+    "db:seed": "pnpm --filter @thien-nam/db seed",
+    "db:studio": "pnpm --filter @thien-nam/db studio",
+    "db:reset": "pnpm --filter @thien-nam/db reset",
+    "clean": "turbo clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md,yml,yaml,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,yml,yaml,json}\"",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:build": "docker compose build",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "eslint": "^9.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.12.0",
+    "pnpm": ">=9.0.0"
+  },
+  "engineStrict": true
+}

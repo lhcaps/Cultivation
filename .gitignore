@@ -1,0 +1,45 @@
+# Build outputs
+dist
+.next
+.nuxt
+.turbo
+.turbo/**/build
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor directories
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test outputs
+coverage
+
+# Prisma
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
+
+# Docker
+*.pid
+*.seed
+
+# Misc
+*.tsbuildinfo

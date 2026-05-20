@@ -1,0 +1,31 @@
+{
+  "name": "@thien-nam/bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx/esm scripts/dev.ts",
+    "build": "tsc --build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix"
+  },
+  "dependencies": {
+    "@sapphire/framework": "^4.8.0",
+    "@sapphire/plugin-logger": "^3.0.6",
+    "@sapphire/plugin-utilities-store": "^3.0.0",
+    "@thien-nam/core": "workspace:*",
+    "@thien-nam/db": "workspace:*",
+    "discord-api-types": "^0.37.80",
+    "discord.js": "^14.15.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@sapphire/tsconfig": "^5.0.0",
+    "@types/node": "^20.12.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0"
+  }
+}

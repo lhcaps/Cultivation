@@ -1,0 +1,42 @@
+{
+  "name": "@thien-nam/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./seeds": {
+      "import": "./dist/seeds/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "push": "prisma db push",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio",
+    "reset": "prisma migrate reset --force",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint prisma src --max-warnings 0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "eslint": "^9.0.0",
+    "prisma": "^5.14.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.0"
+  }
+}
